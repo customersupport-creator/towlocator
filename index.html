@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+file:///C:/Users/Administrator/Downloads/towlocator_12.html<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -144,8 +144,24 @@ body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 .badge.sg { background: var(--gold-g);  color: var(--gold); }
 .badge.pt { background: var(--green-g); color: var(--green); }
+.badge.pm { background: rgba(251,191,36,.12); color: var(--gold); border: 1px solid rgba(251,191,36,.25); }
 .badge.nt { background: var(--amber-g); color: var(--amber); }
 .badge-row { display: flex; gap: 4px; flex-wrap: wrap; }
+/* Confidence match line under distance bar */
+.match-line {
+  font-size: 11px; color: var(--text3);
+  padding: 5px 8px; background: rgba(16,185,129,.06);
+  border-left: 2px solid var(--green); border-radius: 0 5px 5px 0;
+  margin-bottom: 8px; line-height: 1.4;
+}
+.match-line.possible {
+  background: rgba(251,191,36,.06); border-color: var(--gold);
+}
+.conf-bar {
+  display: inline-block; height: 4px; border-radius: 2px;
+  margin-left: 6px; vertical-align: middle; background: var(--green);
+}
+.conf-bar.possible { background: var(--gold); }
 
 /* ── COMPANY CARD ────────────────────────────────────────── */
 .card {
@@ -755,52 +771,156 @@ function haversineRaw(la1, lo1, la2, lo2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 // ═══════════════════════════════════════════════════════════
-// MASTER-LIST MATCHING — strict rules only.
-// A company is ✅ Partnered ONLY when it matches a CSV entry
-// by phone number OR exact (cleaned) name.
-// No fuzzy matching — if it's not clearly on the list, it's 🆕 New Towing.
+// SMART MATCHING — multi-factor fuzzy comparison
+// Returns { partner, score, tier, reason } or null
+//   tier = 'partnered'  → 90–100% confidence  → ✅ Partnered
+//   tier = 'possible'   → 75–89%              → ⚠️ Possible Match
+//   tier = null / score < 75                  → 🆕 New Towing
 // ═══════════════════════════════════════════════════════════
-function clean(s) {
-  return (s || '').toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim();
+
+// Strip noise from a company name for comparison
+const SUFFIX_RE = /\b(llc|inc|corp|co|company|service|services|auto\s*repair|recovery|towing\s*(?:and|&)\s*recovery)\b/gi;
+
+function normName(s) {
+  return (s || '')
+    .toLowerCase()
+    .replace(/&/g, ' and ')         // & → and
+    .replace(/-/g, ' ')             // hyphens → space
+    .replace(SUFFIX_RE, '')         // drop suffixes
+    .replace(/\band\b/g, ' ')       // drop standalone "and"
+    .replace(/[^\w\s]/g, ' ')       // drop remaining punctuation
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
-function findPartner(name, phone) {
-  const ph = (phone || '').replace(/\D/g, '').slice(-10);
-  const nm = clean(name);
+function normPhone(s) {
+  return (s || '').replace(/\D/g, '').slice(-10);
+}
+
+// Extract "123 emery" from any address format
+function normAddr(s) {
+  const m = (s || '').match(/(\d+)\D*([a-zA-Z]+)/);
+  return m ? `${m[1]} ${m[2].toLowerCase()}` : '';
+}
+
+// Email domain (ignore generic providers)
+const GENERIC_DOMAINS = new Set(['gmail.com','yahoo.com','hotmail.com','outlook.com','aol.com','icloud.com']);
+function emailDomain(s) {
+  const d = (s || '').split('@')[1]?.toLowerCase().trim() || '';
+  return GENERIC_DOMAINS.has(d) ? '' : d;
+}
+
+// Dice coefficient — bigram string similarity 0→1
+function dice(a, b) {
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  if (a.length < 2 || b.length < 2) return 0;
+  const bg = new Map();
+  for (let i = 0; i < a.length - 1; i++) {
+    const k = a.slice(i, i+2); bg.set(k, (bg.get(k)||0) + 1);
+  }
+  let inter = 0;
+  for (let i = 0; i < b.length - 1; i++) {
+    const k = b.slice(i, i+2); const n = bg.get(k)||0;
+    if (n > 0) { bg.set(k, n-1); inter++; }
+  }
+  return (2 * inter) / (a.length + b.length - 2);
+}
+
+// Main matching function
+function findPartner(name, phone, address, email) {
+  const ph   = normPhone(phone);
+  const nm   = normName(name);
+  const addr = normAddr(address);
+  const dom  = emailDomain(email);
+
+  let best = null, bestScore = 0;
 
   for (const co of db) {
     if (co.status === 'Inactive') continue;
 
-    // Match by phone number — most reliable
-    const dbPh = (co.phone || '').replace(/\D/g, '').slice(-10);
-    if (ph && dbPh && ph === dbPh) return co;
+    // ── Factor 1: Phone number (exact) → instant 100% ──────
+    const coPh = normPhone(co.phone);
+    if (ph && coPh && ph === coPh) {
+      return { partner: co, score: 100, tier: 'partnered',
+               reason: `Phone match` };
+    }
 
-    // Match by exact cleaned name
-    if (nm && clean(co.name) === nm) return co;
+    // ── Factor 2: Email domain (non-generic) ────────────────
+    const coDom = emailDomain(co.email);
+    if (dom && coDom && dom === coDom) {
+      return { partner: co, score: 98, tier: 'partnered',
+               reason: `Email domain match (${dom})` };
+    }
+
+    // ── Factor 3: Name similarity (Dice on bigrams) ─────────
+    const coNm = normName(co.name);
+    const nameSim = Math.round(dice(nm, coNm) * 100);
+
+    // ── Factor 4: Street address (number + street word) ─────
+    const coAddr = normAddr(co.address);
+    const addrMatch = addr && coAddr && addr === coAddr;
+
+    // ── Composite score ─────────────────────────────────────
+    let score = nameSim;
+    // Address corroboration boosts borderline name matches
+    if (addrMatch && nameSim >= 55) score = Math.min(100, score + 18);
+
+    if (score > bestScore) {
+      bestScore = score;
+      best = { partner: co, score, nameSim, addrMatch };
+    }
   }
-  return null; // not on CSV → New Towing
+
+  if (!best || bestScore < 75) return null;
+
+  const reason = best.addrMatch
+    ? `Name ${best.nameSim}% + address match`
+    : `Name similarity ${best.score}%`;
+
+  return {
+    partner:  best.partner,
+    score:    best.score,
+    nameSim:  best.nameSim,
+    addrMatch:best.addrMatch,
+    tier:     best.score >= 90 ? 'partnered' : 'possible',
+    reason,
+  };
 }
 
 // ═══════════════════════════════════════════════════════════
 // MERGE OSM + MASTER LIST
 // ═══════════════════════════════════════════════════════════
 function mergeResults(osmResults, masterInRange) {
-  // Tag each OSM result
   const merged = osmResults.map(c => {
-    const p = findPartner(c.name, c.phone);
-    return { ...c, isPartner: !!p, partnerData: p,
-             email: p?.email || '', contact: p?.contact || '' };
+    const m = findPartner(c.name, c.phone, c.address, c.email||'');
+    return {
+      ...c,
+      isPartner:   m?.tier === 'partnered',
+      isPossible:  m?.tier === 'possible',
+      partnerData: m?.partner  || null,
+      matchScore:  m?.score    || 0,
+      matchReason: m?.reason   || '',
+      matchedName: m?.partner?.name || '',
+      email:       m?.partner?.email   || c.email   || '',
+      contact:     m?.partner?.contact || c.contact || '',
+    };
   });
 
-  // Append master-list companies not already found on OSM
+  // Append master-list companies not already surfaced by OSM
   for (const mc of masterInRange) {
-    const already = merged.some(r => findPartner(r.name, r.phone)?.id === mc.id);
+    const already = merged.some(r =>
+      findPartner(r.name, r.phone, r.address, r.email)?.partner?.id === mc.id
+    );
     if (!already) {
       merged.push({
         id: mc.id, name: mc.name, lat: mc.lat, lng: mc.lng,
         phone: mc.phone, email: mc.email, contact: mc.contact,
         address: mc.address, website: '',
-        isPartner: true, partnerData: mc, fromOSM: false,
+        isPartner: true, isPossible: false,
+        partnerData: mc, matchScore: 100,
+        matchReason: 'Master list', matchedName: mc.name,
+        fromOSM: false,
       });
     }
   }
@@ -1146,9 +1266,10 @@ function renderResults(results) {
   }
 
   const pt   = results.filter(r => r.isPartner).length;
-  const nt   = results.length - pt;
-  const nNom = results.filter(r => r.fromNom && !r.isPartner).length;
-  const nOvp = results.filter(r => r.fromOSM && !r.fromNom && !r.isPartner).length;
+  const pm   = results.filter(r => r.isPossible).length;
+  const nt   = results.length - pt - pm;
+  const nNom = results.filter(r => r.fromNom && !r.isPartner && !r.isPossible).length;
+  const nOvp = results.filter(r => r.fromOSM && !r.fromNom && !r.isPartner && !r.isPossible).length;
 
   let html = `
     <div class="res-summary">
@@ -1156,34 +1277,54 @@ function renderResults(results) {
     </div>
     <div class="res-counts">
       <span class="badge pt">✅ ${pt} Partnered</span>
+      ${pm ? `<span class="badge pm">⚠️ ${pm} Possible</span>` : ''}
       <span class="badge nt">🆕 ${nt} New Towing</span>
       <span class="badge sg">⭐ Fastest: ${results[0].etaTxt}</span>
     </div>
     <div style="font-size:11px;color:var(--text3);padding:0 2px 8px">
-      Sources: ${pt} from master list · ${nNom} Nominatim · ${nOvp} Overpass · ${results.filter(r=>!r.fromOSM&&r.isPartner).length} CSV-only
+      Sources: ${results.filter(r=>!r.fromOSM).length} CSV · ${nNom} Nominatim · ${nOvp} Overpass
     </div>`;
 
   results.forEach((c, i) => {
-    const isFastest = i === 0;
-    const rnBg = i === 0 ? '#f59e0b' : c.isPartner ? '#10b981' : '#4b5563';
-    const rnTc = '#fff';
-    const src = c.fromNom ? 'Nominatim'
-               : c.fromOSM ? 'Overpass'
-               : 'Master List';
+    const isFastest   = i === 0;
+    const isPartnered = c.isPartner;
+    const isPossible  = c.isPossible;
+
+    const rnBg = i === 0 ? '#f59e0b' : isPartnered ? '#10b981' : isPossible ? '#92400e' : '#4b5563';
+    const src  = c.fromNom ? 'Nominatim' : c.fromOSM ? 'Overpass' : 'Master List';
     const srcLabel = `<span style="font-size:10px;color:var(--text3);margin-left:4px">· ${src}</span>`;
+
+    const mainBadge = isPartnered
+      ? `<span class="badge pt">✅ Partnered</span>`
+      : isPossible
+        ? `<span class="badge pm">⚠️ Possible Match</span>`
+        : `<span class="badge nt">🆕 New Towing</span>`;
+
+    let matchLine = '';
+    if ((isPartnered || isPossible) && c.matchedName && c.matchReason) {
+      const barW  = Math.round((c.matchScore / 100) * 60);
+      const color = isPossible ? 'var(--gold)' : 'var(--green)';
+      matchLine = `
+        <div class="match-line${isPossible ? ' possible' : ''}">
+          🔗 Matched to: <b>${c.matchedName}</b><br>
+          Match confidence: <b style="color:${color}">${c.matchScore}%</b>
+          <span class="conf-bar${isPossible ? ' possible' : ''}" style="width:${barW}px"></span>
+          <span style="color:var(--text3)"> · ${c.matchReason}</span>
+        </div>`;
+    }
 
     html += `
     <div class="card${isFastest ? ' fastest' : ''}" id="card-${c.id}" onclick="selectCard('${c.id}')">
       <div class="card-head">
         <div class="card-name">
-          <span class="rank" style="background:${rnBg};color:${rnTc}">${i+1}</span>
+          <span class="rank" style="background:${rnBg};color:#fff">${i+1}</span>
           <span style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
             ${c.name}${srcLabel}
           </span>
         </div>
         <div class="badge-row">
           ${isFastest ? '<span class="badge sg">⭐ Suggested</span>' : ''}
-          <span class="badge ${c.isPartner ? 'pt' : 'nt'}">${c.isPartner ? '✅ Partnered' : '🆕 New'}</span>
+          ${mainBadge}
         </div>
       </div>
 
@@ -1201,6 +1342,8 @@ function renderResults(results) {
           <div class="dc-val">${c.etaTxt}</div>
         </div>
       </div>
+
+      ${matchLine}
 
       <div class="card-info">
         ${c.address ? `<div class="ci">🏠 <span>${c.address}</span></div>` : ''}
