@@ -1,4 +1,4 @@
-file:///C:/Users/Administrator/Downloads/towlocator_12.html<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -240,7 +240,7 @@ body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
 
 /* ── MAP ─────────────────────────────────────────────────── */
 .map-wrap { flex: 1; position: relative; }
-#map { width: 100%; height: 100%; }
+#map, #mapSnow { width: 100%; height: 100%; }
 
 .map-loader {
   position: absolute; inset: 0; z-index: 1000;
@@ -337,6 +337,102 @@ tr:hover td { background: rgba(28,34,50,.6); }
 @keyframes tin { from { transform: translateX(110%); opacity: 0; }
                  to   { transform: translateX(0);    opacity: 1; } }
 
+
+/* ══ SNOW REMOVAL TAB ══════════════════════════════════════ */
+:root { --ice:#60a5fa; --ice-d:#3b82f6; --ice-g:rgba(96,165,250,.1); }
+.rbtn.sno.on { background:var(--ice-g); border-color:var(--ice); color:var(--ice); }
+.btn-find.snow { background:var(--ice); }
+.btn-find.snow:hover { background:var(--ice-d); }
+.snow-subtabs { display:flex; border-bottom:1px solid var(--border); flex-shrink:0; }
+.stab { flex:1; padding:9px 4px; background:none; border:none; border-bottom:2px solid transparent;
+        color:var(--text2); cursor:pointer; font-size:12px; font-weight:500; transition:all .15s; }
+.stab:hover { color:var(--text); }
+.stab.on { color:var(--ice); border-bottom-color:var(--ice); font-weight:700; }
+/* Snow result card */
+.scard { background:var(--sf2); border:1px solid var(--border); border-radius:var(--r);
+         padding:13px; margin-bottom:8px; transition:all .18s; }
+.scard:hover { border-color:var(--border2); box-shadow:0 4px 14px rgba(0,0,0,.3); }
+.scard.landscaping { border-left:3px solid var(--amber); }
+.scard-head { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; gap:6px; }
+.scard-name { font-weight:700; font-size:14px; flex:1; min-width:0;
+              white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.svc-row { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:8px; }
+.svc { padding:2px 8px; border-radius:5px; font-size:11px; font-weight:600; }
+.svc.yes { background:var(--green-g); color:var(--green); }
+.svc.no  { background:var(--red-g); color:var(--red); }
+.svc.unk { background:var(--sf3); color:var(--text3); }
+.scard-info { margin-bottom:8px; }
+.si { font-size:12px; color:var(--text2); margin-bottom:3px; display:flex; gap:6px; align-items:baseline; }
+.si span { color:var(--text); }
+.si a { color:var(--ice); text-decoration:none; }
+.si a:hover { text-decoration:underline; }
+.scard-acts { display:flex; gap:5px; flex-wrap:wrap; }
+.sa { display:flex; align-items:center; justify-content:center; gap:4px;
+      padding:6px 9px; border-radius:7px; border:none; font-size:12px; font-weight:600;
+      cursor:pointer; text-decoration:none; transition:all .15s; white-space:nowrap; }
+.sa.call { background:var(--green); color:#fff; }
+.sa.call:hover { opacity:.85; }
+.sa.email { background:var(--ice); color:#fff; }
+.sa.email:hover { opacity:.85; }
+.sa.web { background:var(--sf3); border:1px solid var(--border2); color:var(--text2); }
+.sa.web:hover { border-color:var(--ice); color:var(--ice); }
+.sa.save-btn { background:var(--amber-g); border:1px solid var(--amber); color:var(--amber); }
+.sa.save-btn:hover { background:var(--amber); color:#000; }
+/* Rating */
+.rating-row { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text2); margin-bottom:6px; }
+.stars { color:#f59e0b; letter-spacing:1px; }
+/* Notes pill */
+.notes-pill { background:var(--sf3); border-radius:5px; padding:4px 8px;
+              font-size:11px; color:var(--text2); margin-top:5px; font-style:italic; }
+/* Expand banner */
+.expand-banner { background:rgba(245,158,11,.08); border:1px solid rgba(245,158,11,.25);
+                 border-radius:8px; padding:8px 12px; font-size:12px; color:var(--amber); margin-bottom:10px; }
+/* Saved vendors */
+.sv-card { background:var(--sf2); border:1px solid var(--border); border-radius:8px;
+           padding:12px; margin-bottom:8px; }
+.sv-card-head { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px; }
+.sv-name { font-weight:700; font-size:13px; }
+/* Tracker */
+.trk-form { background:var(--sf2); border:1px solid var(--border); border-radius:8px;
+             padding:14px; margin-bottom:12px; }
+.trk-form-title { font-size:13px; font-weight:700; margin-bottom:10px; }
+.trk-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px; }
+.trk-table { width:100%; border-collapse:collapse; font-size:12px; }
+.trk-table th { padding:6px 8px; text-align:left; font-size:10px; font-weight:800;
+                color:var(--text2); text-transform:uppercase; letter-spacing:.5px;
+                border-bottom:1px solid var(--border); background:rgba(11,14,20,.5); }
+.trk-table td { padding:8px; border-bottom:1px solid var(--border); vertical-align:top; }
+.trk-table tr:last-child td { border:none; }
+.trk-table tr:hover td { background:rgba(28,34,50,.5); }
+/* Modal */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.65); z-index:3000;
+                 display:flex; align-items:center; justify-content:center; backdrop-filter:blur(4px); }
+.modal-box { background:var(--sf); border:1px solid var(--border2); border-radius:var(--r);
+             padding:22px; width:420px; max-width:94vw; max-height:88vh; overflow-y:auto; }
+.modal-title { font-size:15px; font-weight:700; margin-bottom:14px; color:var(--ice); }
+.modal-fl { margin-bottom:10px; }
+.modal-fl label { font-size:10px; font-weight:800; color:var(--text2); text-transform:uppercase;
+                  letter-spacing:.5px; margin-bottom:4px; display:block; }
+.modal-fi { width:100%; padding:7px 10px; background:var(--bg); border:1px solid var(--border2);
+            border-radius:6px; color:var(--text); font-size:13px; outline:none; }
+.modal-fi:focus { border-color:var(--ice); }
+.modal-checks { display:flex; flex-direction:column; gap:7px; margin-bottom:10px; }
+.modal-check { display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; }
+.modal-check input { width:16px; height:16px; cursor:pointer; accent-color:var(--ice); }
+.modal-btns { display:flex; gap:8px; margin-top:14px; }
+.mbtn { padding:8px 18px; border-radius:7px; border:none; font-size:13px; font-weight:700;
+        cursor:pointer; transition:all .15s; }
+.mbtn.ice { background:var(--ice); color:#fff; }
+.mbtn.ice:hover { background:var(--ice-d); }
+.mbtn.ghost { background:var(--sf2); color:var(--text2); }
+/* Export bar */
+.export-bar { display:flex; justify-content:space-between; align-items:center;
+              padding:8px 2px; font-size:12px; color:var(--text2); margin-bottom:4px; }
+.btn-export { padding:5px 12px; background:var(--sf3); border:1px solid var(--border2);
+              border-radius:6px; color:var(--text2); font-size:12px; font-weight:600;
+              cursor:pointer; transition:all .15s; }
+.btn-export:hover { border-color:var(--ice); color:var(--ice); }
+
 .dn { display: none !important; }
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -354,6 +450,7 @@ tr:hover td { background: rgba(28,34,50,.6); }
   </div>
   <div class="tabs">
     <button class="tab on" onclick="switchTab('Search',this)">🔍 Find Towing</button>
+    <button class="tab"    onclick="switchTab('Snow',this)">❄️ Snow Removal</button>
     <button class="tab"    onclick="switchTab('Admin',this)">⚙️ Admin</button>
   </div>
 </div>
@@ -520,6 +617,155 @@ tr:hover td { background: rgba(28,34,50,.6); }
           <tbody id="tblBody"></tbody>
         </table>
       </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ SNOW REMOVAL VIEW ════════════════════════════════════ -->
+<div id="vSnow" class="view">
+  <div class="sidebar">
+
+    <!-- Search panel -->
+    <div class="srch-panel">
+      <div class="srch-label" style="color:var(--ice)">❄️ Snow Removal Finder</div>
+      <div class="addr-wrap">
+        <input class="addr-input" id="snowAddrIn"
+               placeholder="Address, City, State, or ZIP…"
+               onkeydown="if(event.key==='Enter')doSnowSearch()"/>
+        <button class="addr-clear" onclick="clearSnowSearch()" title="Clear">×</button>
+      </div>
+      <div class="ctrl-row">
+        <span class="ctrl-label">Radius:</span>
+        <div class="radius-btns">
+          <button class="rbtn sno on" onclick="setSnowR(5,this)">5 mi</button>
+          <button class="rbtn sno"    onclick="setSnowR(10,this)">10 mi</button>
+          <button class="rbtn sno"    onclick="setSnowR(25,this)">25 mi</button>
+          <button class="rbtn sno"    onclick="setSnowR(50,this)">50 mi</button>
+        </div>
+      </div>
+      <button class="btn-find snow" id="snowFindBtn" onclick="doSnowSearch()">
+        ❄️ Find Snow Removal Companies
+      </button>
+    </div>
+
+    <!-- Sub-tabs -->
+    <div class="snow-subtabs">
+      <button class="stab on" onclick="switchSnowTab('results',this)">🔍 Results</button>
+      <button class="stab"    onclick="switchSnowTab('saved',this)">💾 Saved Vendors</button>
+      <button class="stab"    onclick="switchSnowTab('tracker',this)">📋 Tracker</button>
+    </div>
+
+    <!-- Results panel -->
+    <div class="results" id="snowResults">
+      <div class="empty">
+        <div class="empty-ico">❄️</div>
+        <p>Enter a facility address to find snow removal companies via OpenStreetMap.<br><br>
+        If no snow companies are found, the search automatically expands to nearby landscaping and property maintenance companies.</p>
+      </div>
+    </div>
+
+    <!-- Saved Vendors panel -->
+    <div class="results dn" id="snowSaved">
+      <div id="snowSavedList">
+        <div class="empty"><div class="empty-ico">💾</div>
+          <p>No vendors saved yet. Search for companies and click <b>Save</b> to add them here.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tracker panel -->
+    <div class="results dn" id="snowTracker">
+      <div class="trk-form">
+        <div class="trk-form-title">➕ Log Vendor Assignment</div>
+        <div class="trk-grid">
+          <div><label class="fl-lbl">Facility Name</label>
+            <input class="modal-fi" id="trkFacility" placeholder="123 Main Parking"/></div>
+          <div><label class="fl-lbl">Vendor Name</label>
+            <input class="modal-fi" id="trkVendor" placeholder="ABC Snow Removal"/></div>
+          <div><label class="fl-lbl">Contact Person</label>
+            <input class="modal-fi" id="trkContact" placeholder="John Smith"/></div>
+          <div><label class="fl-lbl">Cost per Visit</label>
+            <input class="modal-fi" id="trkCost" placeholder="$250"/></div>
+        </div>
+        <label class="fl-lbl">Notes</label>
+        <textarea class="modal-fi" id="trkNotes" rows="2"
+                  placeholder="Pricing details, schedule, special instructions…" style="resize:vertical"></textarea>
+        <div style="margin-top:8px">
+          <button class="mbtn ice" onclick="addTrackerRow()">➕ Add Entry</button>
+        </div>
+      </div>
+      <div id="trackerTable">
+        <div class="empty"><div class="empty-ico">📋</div>
+          <p>No tracker entries yet. Log vendor assignments above.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Snow Map -->
+  <div class="map-wrap">
+    <div id="mapSnow"></div>
+    <div class="map-loader dn" id="snowLoader">
+      <div class="spinner" style="border-top-color:var(--ice)"></div>
+      <div class="loader-msg" id="snowLoaderMsg">Searching…</div>
+      <div class="loader-sub" id="snowLoaderSub"></div>
+    </div>
+    <div class="map-key dn" id="snowMapKey">
+      <div class="mk-row"><div class="mk-dot" style="background:#ef4444"></div><span style="color:var(--text2)">Facility</span></div>
+      <div class="mk-row"><div class="mk-dot" style="background:#60a5fa"></div><span style="color:var(--text2)">Snow Removal</span></div>
+      <div class="mk-row"><div class="mk-dot" style="background:#f59e0b"></div><span style="color:var(--text2)">Landscaping</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SAVE VENDOR MODAL ════════════════════════════════════ -->
+<div class="modal-overlay dn" id="saveModal">
+  <div class="modal-box">
+    <div class="modal-title">❄️ Save Snow Vendor</div>
+    <input type="hidden" id="saveVendorId"/>
+    <div class="modal-fl">
+      <label>Company Name</label>
+      <input class="modal-fi" id="svName" readonly style="opacity:.7"/>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="modal-fl">
+        <label>Phone</label>
+        <input class="modal-fi" id="svPhone" placeholder="(555) 123-4567"/>
+      </div>
+      <div class="modal-fl">
+        <label>Email</label>
+        <input class="modal-fi" id="svEmail" placeholder="info@company.com"/>
+      </div>
+    </div>
+    <div class="modal-fl">
+      <label>Website</label>
+      <input class="modal-fi" id="svWebsite" placeholder="https://"/>
+    </div>
+    <div class="modal-fl">
+      <label>Service Area</label>
+      <input class="modal-fi" id="svArea" placeholder="Chicago, IL and suburbs"/>
+    </div>
+    <div class="modal-fl">
+      <label>Google Rating (manual)</label>
+      <input class="modal-fi" id="svRating" type="number" step="0.1" min="1" max="5" placeholder="e.g. 4.7"/>
+    </div>
+    <div class="modal-fl">
+      <label>Services Offered</label>
+      <div class="modal-checks">
+        <label class="modal-check"><input type="checkbox" id="sv24h"/> ☁️ 24/7 Emergency Service</label>
+        <label class="modal-check"><input type="checkbox" id="svComm"/> 🏢 Commercial Parking Lot Service</label>
+        <label class="modal-check"><input type="checkbox" id="svSalt"/> 🧂 Salt / Ice Management</label>
+      </div>
+    </div>
+    <div class="modal-fl">
+      <label>Pricing / Notes</label>
+      <textarea class="modal-fi" id="svNotes" rows="3"
+                placeholder="Per visit cost, contract details, seasonal rate…" style="resize:vertical"></textarea>
+    </div>
+    <div class="modal-btns">
+      <button class="mbtn ice" onclick="confirmSaveVendor()">💾 Save Vendor</button>
+      <button class="mbtn ghost" onclick="closeSaveModal()">Cancel</button>
     </div>
   </div>
 </div>
@@ -1577,6 +1823,7 @@ function switchTab(name, btn) {
   btn.classList.add('on');
   if (name === 'Admin')  renderTable();
   if (name === 'Search') setTimeout(() => map.invalidateSize(), 60);
+  if (name === 'Snow') setTimeout(() => { initSnowMap(); setTimeout(() => mapSnow?.invalidateSize(), 120); }, 60);
 }
 
 function setLoader(show, msg = '', sub = '') {
@@ -1594,6 +1841,607 @@ function toast(msg, type = 'inf') {
   t.textContent = msg;
   c.appendChild(t);
   setTimeout(() => t.remove(), 3600);
+}
+
+
+// ════════════════════════════════════════════════════════════════
+// SNOW REMOVAL TAB
+// ════════════════════════════════════════════════════════════════
+
+// ── State ─────────────────────────────────────────────────────
+let mapSnow = null, snowSpotMark = null, snowCoMarkers = new Map();
+let snowCoords = null, snowResults = [], snowR = 5;
+const SNOW_VENDORS_KEY = 'snowVendors_v2';
+const SNOW_TRACKER_KEY = 'snowTracker_v2';
+
+function setSnowR(r, btn) {
+  snowR = r;
+  document.querySelectorAll('.rbtn.sno').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+}
+
+// ── Map ────────────────────────────────────────────────────────
+function initSnowMap() {
+  if (mapSnow) return;
+  mapSnow = L.map('mapSnow', { center: [38, -90], zoom: 4 });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 19,
+  }).addTo(mapSnow);
+}
+
+function snowSpotIcon() {
+  return L.divIcon({ className: '',
+    html: `<div style="background:#ef4444;width:34px;height:34px;border-radius:50% 50% 50% 0;
+           transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.5);
+           display:flex;align-items:center;justify-content:center">
+           <span style="transform:rotate(45deg);font-size:15px">📍</span></div>`,
+    iconSize: [34,34], iconAnchor: [17,34], popupAnchor: [0,-36] });
+}
+
+function snowCoIcon(rank, isLandscaping) {
+  const bg = isLandscaping ? '#f59e0b' : '#60a5fa';
+  const sz = rank === 1 ? 32 : 28;
+  return L.divIcon({ className: '',
+    html: `<div style="background:${bg};width:${sz}px;height:${sz}px;border-radius:50%;
+           border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5);
+           display:flex;align-items:center;justify-content:center;
+           color:#fff;font-size:12px;font-weight:800">${rank}</div>`,
+    iconSize: [sz,sz], iconAnchor: [sz/2,sz], popupAnchor: [0,-(sz+2)] });
+}
+
+function placeSnowMarkers(results, origin) {
+  snowCoMarkers.forEach(m => mapSnow.removeLayer(m));
+  snowCoMarkers.clear();
+  if (snowSpotMark) mapSnow.removeLayer(snowSpotMark);
+  snowSpotMark = L.marker([origin.lat, origin.lng], { icon: snowSpotIcon() })
+    .addTo(mapSnow)
+    .bindPopup('<b style="color:#ef4444">📍 Facility</b>');
+  results.forEach((c, i) => {
+    if (!c.lat || !c.lng) return;
+    const pop = `<b>${c.name}</b><br>
+      <span style="color:${c.isLandscaping?'#f59e0b':'#60a5fa'};font-size:12px;font-weight:700">
+        ${c.isLandscaping ? '🌿 Landscaping/Maint.' : '❄️ Snow Removal'}
+      </span><br>
+      📏 ${c.distMi.toFixed(1)} mi · ⏱ ${c.etaTxt}
+      ${c.phone ? `<br>📞 ${c.phone}` : ''}`;
+    const m = L.marker([c.lat, c.lng], { icon: snowCoIcon(i+1, c.isLandscaping) })
+      .addTo(mapSnow).bindTooltip(c.name, { direction:'top', offset:[0,-14] }).bindPopup(pop);
+    snowCoMarkers.set(c.id, m);
+  });
+}
+
+// ── Overpass search ────────────────────────────────────────────
+async function searchSnowOverpass(origin, radiusM, fallback = false) {
+  const { lat, lng } = origin;
+  const rm = Math.round(radiusM);
+  const nameFilter = fallback
+    ? `node["name"~"landscap|lawn|property|grounds|outdoor",i](around:${rm},${lat},${lng});
+       way["name"~"landscap|lawn|property|grounds",i](around:${rm},${lat},${lng});`
+    : `node["name"~"snow|plowing|winter service",i](around:${rm},${lat},${lng});
+       way["name"~"snow|plowing|winter",i](around:${rm},${lat},${lng});
+       node["service"~"snow|winter",i](around:${rm},${lat},${lng});`;
+  const q = `[out:json][timeout:30];
+(
+${nameFilter}
+);
+out center tags;`;
+  try {
+    const res = await fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `data=${encodeURIComponent(q)}`,
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const seen = new Set();
+    return (data.elements || []).filter(el => {
+      const n = el.tags?.name;
+      if (!n || seen.has(n.toLowerCase())) return false;
+      seen.add(n.toLowerCase()); return true;
+    }).map(el => ({
+      id: `osnow-${el.id}`,
+      name: el.tags.name,
+      lat: el.lat ?? el.center?.lat,
+      lng: el.lon ?? el.center?.lon,
+      phone:   el.tags.phone || el.tags['contact:phone'] || el.tags['phone:mobile']
+               || el.tags['phone:main'] || el.tags['telephone'] || '',
+      email:   el.tags.email || el.tags['contact:email'] || el.tags['email:main'] || '',
+      website: el.tags.website || el.tags['contact:website'] || el.tags.url
+               || el.tags['website:en'] || '',
+      address: osmAddr(el.tags),
+      rating: null, reviewCount: null,
+      emergency24h: el.tags.opening_hours === '24/7' ? 'Yes' : 'Unknown',
+      commercialLot: 'Unknown', saltMgmt: 'Unknown',
+      isLandscaping: fallback, fromOSM: true,
+    })).filter(c => c.lat && c.lng);
+  } catch(e) { console.warn('Snow Overpass:', e); return []; }
+}
+
+// ── Nominatim snow search ──────────────────────────────────────
+async function searchSnowNominatim(origin, radiusMiles, terms) {
+  const latD = radiusMiles / 69.0;
+  const lngD = latD / Math.cos(origin.lat * Math.PI / 180);
+  const bbox = `${origin.lng-lngD},${origin.lat+latD},${origin.lng+lngD},${origin.lat-latD}`;
+  const raw = [];
+  for (const term of terms) {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(term)}&viewbox=${bbox}&bounded=1&format=json&limit=20&extratags=1&namedetails=0`,
+        { headers: { 'User-Agent': 'TowLocatorPro/1.0', 'Accept-Language': 'en-US' } }
+      );
+      if (!res.ok) continue;
+      const data = await res.json();
+      for (const d of data) {
+        if (!d.lat || !d.lon) continue;
+        const name = d.name || d.display_name.split(',')[0].trim();
+        if (!name) continue;
+        const ex = d.extratags || {};
+        raw.push({
+          id: `nomsnow-${d.place_id}`, name,
+          lat: +d.lat, lng: +d.lon,
+          phone:   ex.phone || ex['contact:phone'] || ex['phone:mobile'] || '',
+          email:   ex.email || ex['contact:email'] || '',
+          website: ex.website || ex['contact:website'] || ex.url || '',
+          address: nomAddr(d.display_name),
+          rating: null, reviewCount: null,
+          emergency24h: ex.opening_hours === '24/7' ? 'Yes' : 'Unknown',
+          commercialLot: 'Unknown', saltMgmt: 'Unknown',
+          isLandscaping: ['landscaping','lawn care','property maintenance'].includes(term),
+          fromOSM: true, fromNom: true,
+        });
+      }
+    } catch(e) { console.warn(`Snow Nominatim "${term}":`, e); }
+    await new Promise(r => setTimeout(r, 350));
+  }
+  return raw;
+}
+
+// ── Deduplicate (reuse dedupResults logic) ─────────────────────
+function dedupSnow(arr) {
+  const out = [];
+  for (const c of arr) {
+    const normC = c.name.toLowerCase().replace(/[^\w]/g, '');
+    const dup = out.some(o => {
+      const normO = o.name.toLowerCase().replace(/[^\w]/g, '');
+      if (normC.slice(0,12) === normO.slice(0,12) && normC.length > 3) return true;
+      if (c.lat && c.lng && o.lat && o.lng)
+        if (haversineRaw(c.lat,c.lng,o.lat,o.lng) < 0.05) return true;
+      return false;
+    });
+    if (!dup) out.push(c);
+  }
+  return out;
+}
+
+// ── Main snow search ───────────────────────────────────────────
+async function doSnowSearch() {
+  const addr = document.getElementById('snowAddrIn').value.trim();
+  if (!addr) { toast('Enter a facility address', 'err'); return; }
+
+  setSnowLoader(true, 'Geocoding address…', 'Nominatim');
+  document.getElementById('snowFindBtn').disabled = true;
+  document.getElementById('snowMapKey').classList.remove('on');
+  switchSnowTab('results', document.querySelector('.stab'));
+
+  const geo = await geocode(addr);
+  if (!geo) {
+    setSnowLoader(false);
+    document.getElementById('snowFindBtn').disabled = false;
+    document.getElementById('snowResults').innerHTML = `
+      <div class="empty"><div class="empty-ico">📍</div>
+        <p><b style="color:var(--amber)">Address not found.</b><br>Try including city &amp; state.</p>
+      </div>`;
+    toast('Address not recognized', 'err'); return;
+  }
+  snowCoords = geo;
+
+  const radiusM = snowR * 1609.34;
+  setSnowLoader(true, `Searching snow removal within ${snowR} mi…`, 'Overpass + Nominatim');
+
+  const snowTerms = ['snow removal', 'snow plowing', 'snow plow'];
+  const [ovpResults, nomResults] = await Promise.all([
+    searchSnowOverpass(geo, radiusM, false),
+    searchSnowNominatim(geo, snowR, snowTerms),
+  ]);
+
+  let merged = dedupSnow([...nomResults, ...ovpResults]);
+
+  // Auto-expand if fewer than 3 results
+  let expanded = false;
+  if (merged.length < 3) {
+    setSnowLoader(true, `Only ${merged.length} found — expanding to landscaping…`, 'Broadening search');
+    const expandR = Math.min(snowR * 2, 75);
+    const lsTerms = ['landscaping', 'lawn care', 'property maintenance'];
+    const [ovpLs, nomLs] = await Promise.all([
+      searchSnowOverpass(geo, expandR * 1609.34, true),
+      searchSnowNominatim(geo, expandR, lsTerms),
+    ]);
+    const lsMerged = dedupSnow([...nomLs, ...ovpLs]);
+    merged = dedupSnow([...merged, ...lsMerged]);
+    expanded = lsMerged.length > 0;
+  }
+
+  if (!merged.length) {
+    setSnowLoader(false);
+    document.getElementById('snowFindBtn').disabled = false;
+    document.getElementById('snowResults').innerHTML = `
+      <div class="empty"><div class="empty-ico">🔍</div>
+        <p>No companies found within ${snowR} miles.<br>Try a larger radius.</p>
+      </div>`;
+    toast('No results found', 'inf'); return;
+  }
+
+  // Score distances with OSRM table
+  setSnowLoader(true, `Calculating driving times for ${merged.length} companies…`, 'OSRM');
+  const distData = await osrmTable(geo, merged);
+
+  snowResults = merged.slice(0, 30).map((c, i) => ({
+    ...c,
+    distMi: distData[i]?.distMi ?? haversineRaw(geo.lat,geo.lng,c.lat,c.lng),
+    etaTxt: distData[i]?.etaTxt ?? etaFmt(haversineRaw(geo.lat,geo.lng,c.lat,c.lng)/28*3600),
+    etaSec: distData[i]?.etaSec ?? 99999,
+  })).filter(c => c.distMi <= snowR * 1.3)
+     .sort((a,b) => a.etaSec - b.etaSec || a.distMi - b.distMi);
+
+  placeSnowMarkers(snowResults, geo);
+  renderSnowResults(snowResults, expanded);
+
+  if (snowResults.length) {
+    const bounds = L.latLngBounds([[geo.lat, geo.lng]]);
+    snowResults.slice(0, 8).forEach(c => { if(c.lat&&c.lng) bounds.extend([c.lat,c.lng]); });
+    mapSnow.fitBounds(bounds, { padding:[60,50] });
+    document.getElementById('snowMapKey').classList.add('on');
+  }
+
+  setSnowLoader(false);
+  document.getElementById('snowFindBtn').disabled = false;
+
+  const snowCt = snowResults.filter(r => !r.isLandscaping).length;
+  const lsCt   = snowResults.filter(r =>  r.isLandscaping).length;
+  toast(`${snowResults.length} found · ${snowCt} snow removal · ${lsCt} landscaping`, 'ok');
+}
+
+// ── Render results ─────────────────────────────────────────────
+function renderSnowResults(results, wasExpanded) {
+  const el = document.getElementById('snowResults');
+  if (!results.length) { el.innerHTML = `<div class="empty"><p>No results.</p></div>`; return; }
+
+  const snowCt = results.filter(r => !r.isLandscaping).length;
+  const lsCt   = results.filter(r =>  r.isLandscaping).length;
+
+  let html = `
+    <div class="export-bar">
+      <span style="color:var(--text2)">${results.length} companies · ❄️ ${snowCt} snow · 🌿 ${lsCt} landscaping</span>
+      <button class="btn-export" onclick="exportSnowCSV()">⬇️ Export CSV</button>
+    </div>`;
+
+  if (wasExpanded) {
+    html += `<div class="expand-banner">⚠️ Few snow companies found — also showing landscaping &amp; property maintenance companies that may offer snow removal services.</div>`;
+  }
+
+  results.forEach((c, i) => {
+    const savedVendors = getSnowVendors();
+    const isSaved = savedVendors.some(v => v.sourceId === c.id);
+    const sv = savedVendors.find(v => v.sourceId === c.id);
+
+    const svcBadge = (val, label) => {
+      const cls = val === 'Yes' ? 'yes' : val === 'No' ? 'no' : 'unk';
+      const icon = label.includes('24/7') ? '☁️' : label.includes('Comm') ? '🏢' : '🧂';
+      return `<span class="svc ${cls}">${icon} ${label}: ${val === 'Unknown' ? '?' : val}</span>`;
+    };
+
+    const rating = sv?.rating
+      ? `<div class="rating-row"><span class="stars">${'★'.repeat(Math.round(sv.rating))}${'☆'.repeat(5-Math.round(sv.rating))}</span> <b>${sv.rating}</b> <span style="color:var(--text3)">(manual)</span></div>`
+      : `<div class="rating-row" style="color:var(--text3);font-size:11px">⭐ Rating: N/A — not available from OpenStreetMap · <a href="#" onclick="openSaveModal('${c.id}');return false" style="color:var(--ice)">Add manually</a></div>`;
+
+    const e24 = sv?.emergency24h ?? c.emergency24h;
+    const eComm = sv?.commercialLot ?? c.commercialLot;
+    const eSalt = sv?.saltMgmt ?? c.saltMgmt;
+    const notes = sv?.notes || c.notes || '';
+
+    html += `
+    <div class="scard${c.isLandscaping ? ' landscaping' : ''}" id="scard-${c.id}">
+      <div class="scard-head">
+        <div>
+          <div class="scard-name">${i+1}. ${c.name}
+            ${c.isLandscaping ? ' <span style="font-size:10px;color:var(--amber)">🌿 Landscaping</span>' : ''}
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">
+            📏 ${c.distMi.toFixed(1)} mi · ⏱ ${c.etaTxt}
+            ${c.fromNom ? ' · Nominatim' : ' · Overpass'}
+          </div>
+        </div>
+        <span class="badge ${isSaved ? 'pt' : 'nt'}">${isSaved ? '💾 Saved' : 'Unsaved'}</span>
+      </div>
+
+      ${rating}
+
+      <div class="svc-row">
+        ${svcBadge(e24, '24/7 Emergency')}
+        ${svcBadge(eComm, 'Commercial Lots')}
+        ${svcBadge(eSalt, 'Salt/Ice Mgmt')}
+      </div>
+
+      <div class="scard-info">
+        ${c.address ? `<div class="si">🏠 <span>${c.address}</span></div>` : ''}
+        ${c.phone
+          ? `<div class="si">📞 <span>${c.phone}</span></div>`
+          : `<div class="si"><span style="color:var(--text3)">📞 Not in OSM —</span> <a href="https://www.google.com/search?q=${encodeURIComponent(c.name+' phone number')}" target="_blank" style="color:var(--ice);font-size:12px">Find phone →</a></div>`}
+        ${c.email
+          ? `<div class="si">✉️ <span><a href="mailto:${c.email}">${c.email}</a></span></div>`
+          : `<div class="si"><span style="color:var(--text3)">✉️ Not in OSM —</span> <a href="https://www.google.com/search?q=${encodeURIComponent(c.name+' email')}" target="_blank" style="color:var(--ice);font-size:12px">Find email →</a></div>`}
+        ${c.website
+          ? `<div class="si">🌐 <span><a href="${c.website}" target="_blank">${c.website.replace(/^https?:\/\//, '').split('/')[0]}</a></span></div>`
+          : `<div class="si"><span style="color:var(--text3)">🌐 Not in OSM —</span> <a href="https://www.google.com/search?q=${encodeURIComponent(c.name)}" target="_blank" style="color:var(--ice);font-size:12px">Search online →</a></div>`}
+        ${notes ? `<div class="notes-pill">📝 ${notes}</div>` : ''}
+      </div>
+
+      <div class="scard-acts">
+        ${c.phone
+          ? `<a class="sa call" href="tel:${c.phone.replace(/\D/g,'')}">📞 Call</a>`
+          : `<a class="sa web" href="https://www.google.com/search?q=${encodeURIComponent(c.name+' phone number')}" target="_blank">🔍 Find Phone</a>`}
+        ${c.email   ? `<a class="sa email" href="mailto:${c.email}">✉️ Email</a>` : ''}
+        ${c.website
+          ? `<a class="sa web" href="${c.website}" target="_blank">🌐 Website</a>`
+          : `<a class="sa web" href="https://www.google.com/search?q=${encodeURIComponent(c.name)}" target="_blank">🌐 Find Online</a>`}
+        <button class="sa save-btn" onclick="openSaveModal('${c.id}')">
+          ${isSaved ? '✏️ Edit' : '💾 Save'}
+        </button>
+      </div>
+    </div>`;
+  });
+
+  el.innerHTML = html;
+}
+
+// ── Save vendor modal ──────────────────────────────────────────
+let saveModalSourceId = null;
+
+function openSaveModal(sourceId) {
+  const c = snowResults.find(r => r.id === sourceId);
+  if (!c) return;
+  saveModalSourceId = sourceId;
+
+  const existing = getSnowVendors().find(v => v.sourceId === sourceId) || {};
+  document.getElementById('saveVendorId').value = sourceId;
+  document.getElementById('svName').value    = c.name;
+  document.getElementById('svPhone').value   = existing.phone   || c.phone   || '';
+  document.getElementById('svEmail').value   = existing.email   || c.email   || '';
+  document.getElementById('svWebsite').value = existing.website || c.website || '';
+  document.getElementById('svArea').value    = existing.serviceArea || '';
+  document.getElementById('svRating').value  = existing.rating  || '';
+  document.getElementById('sv24h').checked   = existing.emergency24h === 'Yes';
+  document.getElementById('svComm').checked  = existing.commercialLot === 'Yes';
+  document.getElementById('svSalt').checked  = existing.saltMgmt === 'Yes';
+  document.getElementById('svNotes').value   = existing.notes   || '';
+  document.getElementById('saveModal').classList.remove('dn');
+}
+
+function closeSaveModal() {
+  document.getElementById('saveModal').classList.add('dn');
+  saveModalSourceId = null;
+}
+
+function confirmSaveVendor() {
+  const sourceId = saveModalSourceId;
+  const c = snowResults.find(r => r.id === sourceId);
+  if (!c) { closeSaveModal(); return; }
+
+  const vendors = getSnowVendors().filter(v => v.sourceId !== sourceId);
+  vendors.push({
+    id:           newId(),
+    sourceId,
+    name:         c.name,
+    address:      c.address,
+    phone:        document.getElementById('svPhone').value.trim(),
+    email:        document.getElementById('svEmail').value.trim(),
+    website:      document.getElementById('svWebsite').value.trim(),
+    serviceArea:  document.getElementById('svArea').value.trim(),
+    rating:       parseFloat(document.getElementById('svRating').value) || null,
+    emergency24h: document.getElementById('sv24h').checked  ? 'Yes' : 'No',
+    commercialLot:document.getElementById('svComm').checked ? 'Yes' : 'No',
+    saltMgmt:     document.getElementById('svSalt').checked ? 'Yes' : 'No',
+    notes:        document.getElementById('svNotes').value.trim(),
+    savedAt:      Date.now(),
+  });
+
+  localStorage.setItem(SNOW_VENDORS_KEY, JSON.stringify(vendors));
+  closeSaveModal();
+  renderSnowResults(snowResults, false);
+  renderSavedVendors();
+  toast(`${c.name} saved as vendor`, 'ok');
+}
+
+function getSnowVendors() {
+  return JSON.parse(localStorage.getItem(SNOW_VENDORS_KEY) || '[]');
+}
+
+// ── Saved vendors list ─────────────────────────────────────────
+function renderSavedVendors() {
+  const vendors = getSnowVendors();
+  const el = document.getElementById('snowSavedList');
+  if (!vendors.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-ico">💾</div>
+      <p>No vendors saved yet. Search and click Save.</p></div>`;
+    return;
+  }
+  el.innerHTML = vendors.map(v => `
+    <div class="sv-card">
+      <div class="sv-card-head">
+        <div class="sv-name">❄️ ${v.name}</div>
+        <button class="sa save-btn" style="padding:4px 8px;font-size:11px"
+                onclick="deleteSnowVendor('${v.id}')">🗑 Remove</button>
+      </div>
+      <div class="svc-row">
+        <span class="svc ${v.emergency24h==='Yes'?'yes':'no'}">☁️ 24/7: ${v.emergency24h}</span>
+        <span class="svc ${v.commercialLot==='Yes'?'yes':'no'}">🏢 Commercial: ${v.commercialLot}</span>
+        <span class="svc ${v.saltMgmt==='Yes'?'yes':'no'}">🧂 Salt: ${v.saltMgmt}</span>
+      </div>
+      <div class="scard-info">
+        ${v.serviceArea ? `<div class="si">📍 <span>${v.serviceArea}</span></div>` : ''}
+        ${v.phone   ? `<div class="si">📞 <span>${v.phone}</span></div>` : ''}
+        ${v.email   ? `<div class="si">✉️ <span>${v.email}</span></div>` : ''}
+        ${v.website ? `<div class="si">🌐 <span>${v.website.replace(/^https?:\/\//, '').split('/')[0]}</span></div>` : ''}
+        ${v.rating  ? `<div class="si">⭐ <span>${v.rating} / 5.0</span></div>` : ''}
+        ${v.notes   ? `<div class="notes-pill">📝 ${v.notes}</div>` : ''}
+      </div>
+      <div class="scard-acts">
+        ${v.phone   ? `<a class="sa call" href="tel:${v.phone.replace(/\D/g,'')}">📞 Call</a>` : ''}
+        ${v.email   ? `<a class="sa email" href="mailto:${v.email}">✉️ Email</a>` : ''}
+        ${v.website ? `<a class="sa web" href="${v.website}" target="_blank">🌐 Website</a>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+function deleteSnowVendor(id) {
+  if (!confirm('Remove this saved vendor?')) return;
+  const vendors = getSnowVendors().filter(v => v.id !== id);
+  localStorage.setItem(SNOW_VENDORS_KEY, JSON.stringify(vendors));
+  renderSavedVendors();
+  toast('Vendor removed', 'ok');
+}
+
+// ── Winter Vendor Tracker ──────────────────────────────────────
+function getTracker() { return JSON.parse(localStorage.getItem(SNOW_TRACKER_KEY) || '[]'); }
+
+function addTrackerRow() {
+  const facility = document.getElementById('trkFacility').value.trim();
+  const vendor   = document.getElementById('trkVendor').value.trim();
+  if (!facility || !vendor) { toast('Facility and Vendor are required', 'err'); return; }
+
+  const rows = getTracker();
+  rows.push({
+    id:            newId(),
+    facilityName:  facility,
+    vendorName:    vendor,
+    contactPerson: document.getElementById('trkContact').value.trim(),
+    costPerVisit:  document.getElementById('trkCost').value.trim(),
+    notes:         document.getElementById('trkNotes').value.trim(),
+    createdAt:     Date.now(),
+  });
+  localStorage.setItem(SNOW_TRACKER_KEY, JSON.stringify(rows));
+  ['trkFacility','trkVendor','trkContact','trkCost','trkNotes'].forEach(id =>
+    document.getElementById(id).value = '');
+  renderTracker();
+  toast('Entry logged', 'ok');
+}
+
+function renderTracker() {
+  const rows = getTracker();
+  const el = document.getElementById('trackerTable');
+  if (!rows.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-ico">📋</div>
+      <p>No tracker entries yet.</p></div>`;
+    return;
+  }
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="font-size:12px;color:var(--text2)">${rows.length} entries</span>
+      <button class="btn-export" onclick="exportTrackerCSV()">⬇️ Export CSV</button>
+    </div>
+    <div style="overflow-x:auto">
+    <table class="trk-table">
+      <thead><tr>
+        <th>Facility</th><th>Vendor</th><th>Contact</th>
+        <th>Cost/Visit</th><th>Notes</th><th></th>
+      </tr></thead>
+      <tbody>
+        ${rows.map(r => `<tr>
+          <td><b>${r.facilityName}</b></td>
+          <td>${r.vendorName}</td>
+          <td>${r.contactPerson || '—'}</td>
+          <td style="color:var(--green);font-weight:700">${r.costPerVisit || '—'}</td>
+          <td style="color:var(--text2)">${r.notes || '—'}</td>
+          <td><button class="sa save-btn" style="padding:3px 8px;font-size:11px"
+                onclick="deleteTrackerRow('${r.id}')">🗑</button></td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>`;
+}
+
+function deleteTrackerRow(id) {
+  if (!confirm('Remove this tracker entry?')) return;
+  const rows = getTracker().filter(r => r.id !== id);
+  localStorage.setItem(SNOW_TRACKER_KEY, JSON.stringify(rows));
+  renderTracker();
+}
+
+// ── Export CSV ─────────────────────────────────────────────────
+function exportSnowCSV() {
+  if (!snowResults.length) { toast('No results to export', 'inf'); return; }
+  const savedVendors = getSnowVendors();
+  const headers = ['Company','Phone','Website','Email','Address',
+                   'Distance (mi)','ETA','Rating','24/7 Emergency',
+                   'Commercial Lots','Salt/Ice Mgmt','Notes','Type'];
+  const rows = snowResults.map(c => {
+    const sv = savedVendors.find(v => v.sourceId === c.id) || {};
+    return [c.name, sv.phone||c.phone, sv.website||c.website, sv.email||c.email,
+            c.address, c.distMi?.toFixed(1), c.etaTxt,
+            sv.rating || 'N/A', sv.emergency24h||c.emergency24h,
+            sv.commercialLot||c.commercialLot, sv.saltMgmt||c.saltMgmt,
+            sv.notes || '', c.isLandscaping ? 'Landscaping' : 'Snow Removal'];
+  });
+  const csv = [headers, ...rows]
+    .map(row => row.map(v => `"${(v||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv,' + encodeURIComponent(csv);
+  a.download = `snow_removal_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  toast('CSV exported', 'ok');
+}
+
+function exportTrackerCSV() {
+  const rows = getTracker();
+  if (!rows.length) { toast('No tracker entries to export', 'inf'); return; }
+  const headers = ['Facility','Vendor','Contact Person','Cost per Visit','Notes','Date Added'];
+  const data = rows.map(r => [r.facilityName, r.vendorName, r.contactPerson,
+    r.costPerVisit, r.notes, new Date(r.createdAt).toLocaleDateString()]);
+  const csv = [headers, ...data]
+    .map(row => row.map(v => `"${(v||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv,' + encodeURIComponent(csv);
+  a.download = `winter_vendor_tracker_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+// ── Sub-tab switcher ───────────────────────────────────────────
+function switchSnowTab(name, btn) {
+  document.getElementById('snowResults').classList.add('dn');
+  document.getElementById('snowSaved').classList.add('dn');
+  document.getElementById('snowTracker').classList.add('dn');
+  document.querySelectorAll('.stab').forEach(t => t.classList.remove('on'));
+
+  if (name === 'results') {
+    document.getElementById('snowResults').classList.remove('dn');
+  } else if (name === 'saved') {
+    document.getElementById('snowSaved').classList.remove('dn');
+    renderSavedVendors();
+  } else if (name === 'tracker') {
+    document.getElementById('snowTracker').classList.remove('dn');
+    renderTracker();
+  }
+  if (btn) btn.classList.add('on');
+}
+
+function clearSnowSearch() {
+  document.getElementById('snowAddrIn').value = '';
+  snowResults = []; snowCoords = null;
+  snowCoMarkers.forEach(m => mapSnow?.removeLayer(m)); snowCoMarkers.clear();
+  if (snowSpotMark) { mapSnow?.removeLayer(snowSpotMark); snowSpotMark = null; }
+  document.getElementById('snowMapKey').classList.remove('on');
+  document.getElementById('snowResults').innerHTML = `
+    <div class="empty"><div class="empty-ico">❄️</div>
+      <p>Enter a facility address to find snow removal companies.</p></div>`;
+  mapSnow?.setView([38, -90], 4);
+}
+
+function setSnowLoader(show, msg='', sub='') {
+  document.getElementById('snowLoader').classList.toggle('dn', !show);
+  if (show) {
+    document.getElementById('snowLoaderMsg').textContent = msg;
+    document.getElementById('snowLoaderSub').textContent = sub;
+  }
 }
 
 // BOOT
