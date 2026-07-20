@@ -603,6 +603,7 @@ tr:hover td { background: rgba(28,34,50,.6); }
         <div class="tbl-acts">
           <input class="fi" id="tblQ" placeholder="Search…"
                  oninput="renderTable()" style="width:150px"/>
+          <button class="btn gray sm" onclick="geocodeAllPending()" title="Geocode all partners missing coordinates">📍 Geocode Pending</button>
           <button class="btn red sm" onclick="clearAll()">🗑 Clear All</button>
         </div>
       </div>
@@ -1439,9 +1440,26 @@ async function doSearch() {
   const allExternal = dedupResults([...nomResults, ...osmResults]);
 
   // ── 3. Master-list companies within radius ───────────────
+  // ── 3b. Lazy-geocode any master list partners that still lack coordinates ──
+  const needsGeo = db.filter(c => c.status !== 'Inactive' && !c.lat && !c.geoAttempted);
+  if (needsGeo.length) {
+    setLoader(true, `Geocoding ${needsGeo.length} new partner(s)…`, 'Nominatim');
+    console.log(`[TowLocator] Lazy-geocoding ${needsGeo.length} unresolved partner(s)…`);
+    for (const c of needsGeo) {
+      c.geoAttempted = true;
+      const g = await geocode(c.address);
+      if (g) { c.lat = g.lat; c.lng = g.lng; console.log(`[TowLocator] ✅ ${c.name}`, g); }
+      else    { console.warn(`[TowLocator] ⚠️ Could not geocode "${c.name}" — ${c.address}`); }
+      await new Promise(r => setTimeout(r, 380));
+    }
+    save();
+  }
+
   const masterInRange = db
     .filter(c => c.status !== 'Inactive' && c.lat && c.lng)
     .filter(c => haversine(geo.lat, geo.lng, c.lat, c.lng) <= R);
+
+  console.log(`[TowLocator] Master list partners in range: ${masterInRange.length}`, masterInRange.map(c => c.name));
 
   // ── 4. Merge all three sources + tag each company ────────
   //    Partnered  = matched in master CSV list
@@ -1662,7 +1680,14 @@ function renderTable() {
     ? rows.map(c => `
       <tr>
         <td>
-          <div style="font-weight:600">${c.name}</div>
+          <div style="font-weight:600;display:flex;align-items:center;gap:6px">
+            ${c.name}
+            ${c.lat && c.lng
+              ? `<span title="Geocoded — will appear in searches" style="color:var(--green);font-size:11px">✅</span>`
+              : c.geoAttempted
+                ? `<span title="Geocoding failed — check address" style="color:var(--red);font-size:11px">⚠️ Bad address</span>`
+                : `<span title="Not yet geocoded — won't appear in searches" style="color:var(--amber);font-size:11px">⏳ Pending</span>`}
+          </div>
           <div class="td-sub">${c.address}</div>
           ${c.email ? `<div class="td-sub">✉️ ${c.email}</div>` : ''}
         </td>
@@ -1674,13 +1699,14 @@ function renderTable() {
         <td>${c.contact || '—'}</td>
         <td>
           <button class="btn gray sm" onclick="editPartner('${c.id}')">✏️</button>
+          ${!c.lat ? `<button class="btn gray sm" onclick="geocodePartner('${c.id}')" style="margin-left:4px" title="Geocode this address">📍</button>` : ''}
           <button class="btn red  sm" onclick="deletePartner('${c.id}')" style="margin-left:4px">🗑</button>
         </td>
       </tr>`).join('')
     : `<tr><td colspan="6" style="text-align:center;color:var(--text2);padding:28px">No partners found.</td></tr>`;
 }
 
-function savePartner() {
+async function savePartner() {
   const name = document.getElementById('fName').value.trim();
   const addr = document.getElementById('fAddr').value.trim();
   if (!name || !addr) { toast('Name and Address are required', 'err'); return; }
@@ -1692,23 +1718,72 @@ function savePartner() {
     email:   document.getElementById('fEmail').value.trim(),
     market:  document.getElementById('fMkt').value.trim(),
     status:  document.getElementById('fStatus').value,
-    lat: null, lng: null,
+    lat: null, lng: null, geoAttempted: false,
   };
 
+  let targetId;
   if (editId) {
     const i = db.findIndex(c => c.id === editId);
     if (i >= 0) {
       const prev = db[i];
-      data.lat = prev.address === addr ? prev.lat : null;
-      data.lng = prev.address === addr ? prev.lng : null;
+      // Preserve coordinates if address unchanged
+      if (prev.address === addr) { data.lat = prev.lat; data.lng = prev.lng; data.geoAttempted = prev.geoAttempted; }
       db[i] = { ...prev, ...data, id: editId };
     }
+    targetId = editId;
     toast('Partner updated', 'ok');
   } else {
-    db.push({ id: newId(), ...data });
-    toast('Partner added', 'ok');
+    targetId = newId();
+    db.push({ id: targetId, ...data });
+    toast('Partner saved — geocoding address…', 'inf');
   }
+
   save(); renderTable(); resetForm();
+
+  // Auto-geocode if no coordinates yet
+  const entry = db.find(c => c.id === targetId);
+  if (entry && !entry.lat) {
+    await geocodePartner(targetId);
+  }
+}
+
+// Geocode a single partner by ID and update localStorage
+async function geocodePartner(id) {
+  const c = db.find(x => x.id === id);
+  if (!c) return;
+
+  console.log(`[TowLocator] Geocoding "${c.name}" at: ${c.address}`);
+  c.geoAttempted = true;
+
+  const g = await geocode(c.address);
+  if (g) {
+    c.lat = g.lat; c.lng = g.lng;
+    save(); renderTable();
+    toast(`✅ "${c.name}" is ready — will appear in searches immediately`, 'ok');
+    console.log(`[TowLocator] ✅ Geocoded "${c.name}":`, g);
+  } else {
+    save(); renderTable();
+    toast(`⚠️ Could not locate "${c.name}" — check the address format (e.g. 123 Main St, Chicago, IL 60601)`, 'err');
+    console.error(`[TowLocator] ❌ Geocoding failed for "${c.name}" — address: ${c.address}`);
+  }
+}
+
+// Geocode all partners that are missing coordinates
+async function geocodeAllPending() {
+  const pending = db.filter(c => c.status !== 'Inactive' && !c.lat && !c.geoAttempted);
+  if (!pending.length) { toast('All partners already geocoded', 'inf'); return; }
+
+  toast(`Geocoding ${pending.length} partner(s)…`, 'inf');
+  let success = 0, fail = 0;
+  for (const c of pending) {
+    c.geoAttempted = true;
+    const g = await geocode(c.address);
+    if (g) { c.lat = g.lat; c.lng = g.lng; success++; }
+    else { fail++; console.error(`[TowLocator] ❌ Failed: "${c.name}" — ${c.address}`); }
+    await new Promise(r => setTimeout(r, 400)); // Nominatim rate limit
+  }
+  save(); renderTable();
+  toast(`Geocoded: ${success} success, ${fail} failed`, success > 0 ? 'ok' : 'err');
 }
 
 function editPartner(id) {
@@ -1780,13 +1855,14 @@ function importCSV(input) {
         email:   get(row, ['email','email address']),
         market:  get(row, ['market','state','city']),
         status:  get(row, ['status']) || 'Active',
-        lat: null, lng: null,
+        lat: null, lng: null, geoAttempted: false,
       });
       added++;
     });
     save(); renderTable();
-    toast(`${added} partners imported${skipped ? ` (${skipped} skipped)` : ''}`, added ? 'ok' : 'err');
+    toast(`${added} partners imported${skipped ? ` (${skipped} skipped)` : ''} — geocoding addresses…`, added ? 'ok' : 'err');
     input.value = '';
+    if (added) setTimeout(() => geocodeAllPending(), 500);
   };
   reader.readAsText(file);
 }
