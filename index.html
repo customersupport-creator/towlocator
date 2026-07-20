@@ -226,6 +226,15 @@ body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
 .ca.ghost { background: var(--sf3); border: 1px solid var(--border2); color: var(--text2); }
 .ca.ghost:hover { border-color: var(--amber); color: var(--amber); }
 .ca.green-ghost:hover { border-color: var(--green); color: var(--green); }
+.ca.gmaps { background: #1a73e8; color: #fff; border: none; }
+.ca.gmaps:hover { background: #1557b0; }
+.sa.gmaps { background: #1a73e8; color: #fff; }
+.sa.gmaps:hover { opacity: .85; }
+/* Diagnostic banner */
+.diag-banner { background:rgba(245,158,11,.08); border:1px solid rgba(245,158,11,.25);
+               border-radius:8px; padding:8px 12px; font-size:12px; color:var(--amber);
+               margin-bottom:8px; line-height:1.5; }
+.diag-banner a { color:var(--amber); font-weight:700; text-decoration:underline; cursor:pointer; }
 
 /* ── EMPTY STATE ─────────────────────────────────────────── */
 .empty { text-align: center; padding: 36px 16px; }
@@ -557,8 +566,9 @@ tr:hover td { background: rgba(28,34,50,.6); }
         <div class="box-title" id="formTitle">➕ Add Partner</div>
         <div class="fl"><label class="fl-lbl">Company Name *</label>
           <input class="fi" id="fName" placeholder="ABC Towing Inc."/></div>
-        <div class="fl"><label class="fl-lbl">Address *</label>
-          <input class="fi" id="fAddr" placeholder="123 Main St, Chicago, IL 60601"/></div>
+        <div class="fl">
+          <label class="fl-lbl">Address * <span id="addrGeoStatus" style="font-size:10px;font-weight:400;color:var(--text3)"></span></label>
+          <input class="fi" id="fAddr" placeholder="123 Main St, Chicago, IL 60601" oninput="updateAddrGeoStatus()"/></div>
         <div class="fl"><label class="fl-lbl">Phone</label>
           <input class="fi" id="fPhone" placeholder="(555) 123-4567"/></div>
         <div class="fl"><label class="fl-lbl">Contact Person</label>
@@ -1459,7 +1469,25 @@ async function doSearch() {
     .filter(c => c.status !== 'Inactive' && c.lat && c.lng)
     .filter(c => haversine(geo.lat, geo.lng, c.lat, c.lng) <= R);
 
-  console.log(`[TowLocator] Master list partners in range: ${masterInRange.length}`, masterInRange.map(c => c.name));
+  // ── Diagnostics: log exactly what's in/out and why ────────
+  const allActive   = db.filter(c => c.status !== 'Inactive');
+  const noCoords    = allActive.filter(c => !c.lat || !c.lng);
+  const failedGeo   = allActive.filter(c => c.geoAttempted && !c.lat);
+  const tooFar      = allActive.filter(c => c.lat && c.lng && haversine(geo.lat, geo.lng, c.lat, c.lng) > R);
+
+  console.group('[TowLocator] ── Search Diagnostics ──');
+  console.log(`Total in DB: ${db.length} | Active: ${allActive.length} | Geocoded: ${allActive.filter(c=>c.lat&&c.lng).length}`);
+  console.log(`In ${R}mi radius: ${masterInRange.length}`, masterInRange.map(c=>c.name));
+  if (failedGeo.length)
+    console.error(`Geocoding FAILED (bad address?): ${failedGeo.length}`, failedGeo.map(c=>`${c.name} → ${c.address}`));
+  if (noCoords.filter(c=>!c.geoAttempted).length)
+    console.warn(`Not yet geocoded: ${noCoords.filter(c=>!c.geoAttempted).length}`, noCoords.filter(c=>!c.geoAttempted).map(c=>c.name));
+  if (tooFar.length)
+    console.log(`Outside ${R}mi radius: ${tooFar.length}`, tooFar.map(c=>`${c.name} (${haversine(geo.lat,geo.lng,c.lat,c.lng).toFixed(1)}mi)`));
+  console.groupEnd();
+
+  // Store diagnostics for results panel
+  window._lastSearchDiag = { masterInRange, failedGeo, noCoords: noCoords.filter(c=>!c.geoAttempted), tooFar, radius: R };
 
   // ── 4. Merge all three sources + tag each company ────────
   //    Partnered  = matched in master CSV list
@@ -1535,7 +1563,23 @@ function renderResults(results) {
   const nNom = results.filter(r => r.fromNom && !r.isPartner && !r.isPossible).length;
   const nOvp = results.filter(r => r.fromOSM && !r.fromNom && !r.isPartner && !r.isPossible).length;
 
-  let html = `
+  // Diagnostic banner for excluded master list partners
+  const diag = window._lastSearchDiag || {};
+  let diagHtml = '';
+  if (diag.failedGeo?.length) {
+    diagHtml += `<div class="diag-banner">⚠️ ${diag.failedGeo.length} partner(s) excluded — geocoding failed (bad address):<br>
+      <b>${diag.failedGeo.map(c=>c.name).join(', ')}</b><br>
+      <a onclick="switchTab('Admin', document.querySelectorAll('.tab')[1])">Go to Admin</a> → 📍 button to re-geocode after fixing the address.</div>`;
+  }
+  if (diag.noCoords?.length) {
+    diagHtml += `<div class="diag-banner">⏳ ${diag.noCoords.length} partner(s) pending geocoding — click
+      <a onclick="switchTab('Admin', document.querySelectorAll('.tab')[1])">Admin → 📍 Geocode Pending</a> to make them searchable.</div>`;
+  }
+  if (diag.tooFar?.length) {
+    diagHtml += `<div class="diag-banner" style="color:var(--text2);border-color:var(--border)">ℹ️ ${diag.tooFar.length} partner(s) outside ${diag.radius}mi radius: ${diag.tooFar.slice(0,3).map(c=>c.name).join(', ')}${diag.tooFar.length>3?'…':''}. Increase radius to include them.</div>`;
+  }
+
+  let html = diagHtml + `
     <div class="res-summary">
       <span>${results.length} companies · ${R} mi radius · click card to draw route</span>
     </div>
@@ -1620,12 +1664,15 @@ function renderResults(results) {
         <a class="ca primary" onclick="event.stopPropagation();selectCard('${c.id}')">
           📡 Draw Route
         </a>
+        <a class="ca gmaps"
+           href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.name + ' ' + (c.address||''))}"
+           target="_blank" onclick="event.stopPropagation()" title="Search on Google Maps">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="white" style="margin-right:3px"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+          Maps
+        </a>
         <a class="ca ghost"
            href="https://www.openstreetmap.org/directions?from=${c.lat}%2C${c.lng}&to=${spotCoords?.lat}%2C${spotCoords?.lng}&route=car"
-           target="_blank" onclick="event.stopPropagation()">🧭 OSM Nav</a>
-        <a class="ca ghost"
-           href="https://www.openstreetmap.org/?mlat=${c.lat}&mlon=${c.lng}#map=17/${c.lat}/${c.lng}"
-           target="_blank" onclick="event.stopPropagation()">🗺️</a>
+           target="_blank" onclick="event.stopPropagation()">🧭 Nav</a>
         ${c.phone
           ? `<a class="ca ghost green-ghost"
                href="tel:${c.phone.replace(/\D/g,'')}"
@@ -1669,8 +1716,17 @@ let editId = null;
 
 function renderTable() {
   const q    = (document.getElementById('tblQ')?.value || '').toLowerCase();
+  // Search across all fields: name, address, phone, email, contact, market, ZIP
   const rows = q
-    ? db.filter(c => c.name.toLowerCase().includes(q) || (c.market || '').toLowerCase().includes(q))
+    ? db.filter(c => {
+        const qn = q.replace(/\D/g,'');  // digits-only for phone/ZIP search
+        return c.name.toLowerCase().includes(q)
+          || (c.address  || '').toLowerCase().includes(q)
+          || (c.market   || '').toLowerCase().includes(q)
+          || (c.phone    || '').replace(/\D/g,'').includes(qn && qn.length>=3 ? qn : '____')
+          || (c.email    || '').toLowerCase().includes(q)
+          || (c.contact  || '').toLowerCase().includes(q);
+      })
     : db;
 
   document.getElementById('coCount').textContent = db.length;
@@ -1822,6 +1878,28 @@ function resetForm() {
   });
   document.getElementById('fStatus').value = 'Active';
   document.getElementById('formTitle').textContent = '➕ Add Partner';
+  updateAddrGeoStatus();
+}
+
+function updateAddrGeoStatus() {
+  const el = document.getElementById('addrGeoStatus');
+  if (!el) return;
+  const addr = document.getElementById('fAddr')?.value.trim();
+  if (!addr) { el.textContent = ''; return; }
+  // If editing an existing record, show its geo status
+  if (editId) {
+    const c = db.find(x => x.id === editId);
+    if (c) {
+      if (c.lat && c.lng && c.address === addr)
+        el.textContent = '✅ Geocoded';
+      else if (c.geoAttempted && !c.lat)
+        el.textContent = '⚠️ Bad address — fix and save to retry';
+      else
+        el.textContent = '⏳ Will geocode on save';
+      return;
+    }
+  }
+  el.textContent = addr.length > 10 ? '⏳ Will geocode on save' : '';
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -2261,6 +2339,12 @@ function renderSnowResults(results, wasExpanded) {
         ${c.website
           ? `<a class="sa web" href="${c.website}" target="_blank">🌐 Website</a>`
           : `<a class="sa web" href="https://www.google.com/search?q=${encodeURIComponent(c.name)}" target="_blank">🌐 Find Online</a>`}
+        <a class="sa gmaps"
+           href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.name + ' ' + (c.address||''))}"
+           target="_blank" title="Search on Google Maps">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="white" style="margin-right:3px"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+          Maps
+        </a>
         <button class="sa save-btn" onclick="openSaveModal('${c.id}')">
           ${isSaved ? '✏️ Edit' : '💾 Save'}
         </button>
