@@ -1,0 +1,2854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TowLocator Pro · Powered by OpenStreetMap</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+/* ── TOKENS ─────────────────────────────────────────────── */
+:root {
+  --bg:      #0b0e14;
+  --sf:      #141821;
+  --sf2:     #1c2232;
+  --sf3:     #252d3f;
+  --border:  #252d42;
+  --border2: #2d3855;
+  --amber:   #f59e0b;
+  --amber-d: #d97706;
+  --amber-g: rgba(245,158,11,.12);
+  --gold:    #fbbf24;
+  --gold-g:  rgba(251,191,36,.14);
+  --green:   #10b981;
+  --green-g: rgba(16,185,129,.10);
+  --red:     #ef4444;
+  --red-g:   rgba(239,68,68,.10);
+  --blue:    #3b82f6;
+  --text:    #dde4f0;
+  --text2:   #8b95b0;
+  --text3:   #4a5578;
+  --r:       10px;
+}
+
+/* ── RESET ──────────────────────────────────────────────── */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; overflow: hidden; }
+body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+       background: var(--bg); color: var(--text); font-size: 14px; }
+
+/* ── HEADER ─────────────────────────────────────────────── */
+.hdr {
+  height: 54px; background: var(--sf);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 20px; flex-shrink: 0;
+}
+.brand { display: flex; align-items: center; gap: 10px;
+         font-size: 17px; font-weight: 700; letter-spacing: -.3px; }
+.brand em { color: var(--amber); font-style: normal; }
+.brand sub { color: var(--text2); font-weight: 400; font-size: 12px;
+             margin-left: 6px; vertical-align: middle; }
+.tabs { display: flex; gap: 3px; }
+.tab { padding: 6px 15px; border-radius: 7px; border: none; cursor: pointer;
+       font-size: 13px; font-weight: 500; background: transparent;
+       color: var(--text2); transition: all .15s; }
+.tab:hover { background: var(--sf2); color: var(--text); }
+.tab.on { background: var(--amber); color: #000; font-weight: 700; }
+
+/* ── LAYOUT ─────────────────────────────────────────────── */
+.view { display: none; height: calc(100vh - 54px); }
+.view.on { display: flex; }
+#vSearch { flex-direction: row; }
+#vAdmin { flex-direction: column; overflow-y: auto;
+          scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+
+/* ── SIDEBAR ─────────────────────────────────────────────── */
+.sidebar {
+  width: 390px; flex-shrink: 0; background: var(--sf);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+
+/* ── SEARCH PANEL ───────────────────────────────────────── */
+.srch-panel { padding: 16px; border-bottom: 1px solid var(--border); }
+.srch-label { font-size: 10px; font-weight: 800; color: var(--amber);
+              text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+.addr-wrap { position: relative; }
+.addr-input {
+  width: 100%; padding: 10px 38px 10px 12px;
+  background: var(--sf2); border: 1px solid var(--border2);
+  border-radius: 8px; color: var(--text); font-size: 13px; outline: none;
+  transition: border-color .15s;
+}
+.addr-input:focus { border-color: var(--amber); }
+.addr-clear {
+  position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; color: var(--text3); cursor: pointer;
+  font-size: 16px; line-height: 1; padding: 2px;
+}
+.addr-clear:hover { color: var(--text2); }
+
+.ctrl-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.ctrl-label { font-size: 11px; color: var(--text2); flex-shrink: 0; }
+.radius-btns { display: flex; gap: 4px; }
+.rbtn {
+  padding: 5px 10px; background: var(--sf3); border: 1px solid var(--border2);
+  border-radius: 6px; color: var(--text2); font-size: 12px; cursor: pointer;
+  transition: all .15s; font-weight: 500;
+}
+.rbtn:hover { color: var(--text); }
+.rbtn.on { background: var(--amber-g); border-color: var(--amber);
+            color: var(--amber); font-weight: 700; }
+
+.btn-find {
+  width: 100%; margin-top: 10px; padding: 11px;
+  background: var(--amber); border: none; border-radius: 8px;
+  color: #000; font-size: 14px; font-weight: 700; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  transition: background .15s;
+}
+.btn-find:hover { background: var(--amber-d); }
+.btn-find:disabled { opacity: .35; cursor: default; }
+
+/* ── ROUTE STRIP ─────────────────────────────────────────── */
+.route-strip {
+  display: none; align-items: center; gap: 10px;
+  padding: 10px 14px; background: rgba(59,130,246,.08);
+  border-bottom: 1px solid rgba(59,130,246,.2);
+  font-size: 12px;
+}
+.route-strip.on { display: flex; }
+.route-strip-name { font-weight: 600; color: var(--text); flex: 1;
+                    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.route-strip-stats { display: flex; gap: 10px; flex-shrink: 0; color: var(--blue); font-weight: 600; }
+.route-clear { background: none; border: none; color: var(--text3);
+               cursor: pointer; font-size: 16px; padding: 0; line-height: 1; }
+.route-clear:hover { color: var(--red); }
+
+/* ── RESULTS LIST ────────────────────────────────────────── */
+.results { flex: 1; overflow-y: auto; padding: 10px;
+           scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+.res-summary {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 4px 3px 10px; font-size: 12px; color: var(--text2);
+}
+.res-summary b { color: var(--amber); }
+.res-counts { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+
+/* ── BADGES ─────────────────────────────────────────────── */
+.badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 8px; border-radius: 20px;
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
+}
+.badge.sg { background: var(--gold-g);  color: var(--gold); }
+.badge.pt { background: var(--green-g); color: var(--green); }
+.badge.pm { background: rgba(251,191,36,.12); color: var(--gold); border: 1px solid rgba(251,191,36,.25); }
+.badge.nt { background: var(--amber-g); color: var(--amber); }
+.badge-row { display: flex; gap: 4px; flex-wrap: wrap; }
+/* Confidence match line under distance bar */
+.match-line {
+  font-size: 11px; color: var(--text3);
+  padding: 5px 8px; background: rgba(16,185,129,.06);
+  border-left: 2px solid var(--green); border-radius: 0 5px 5px 0;
+  margin-bottom: 8px; line-height: 1.4;
+}
+.match-line.possible {
+  background: rgba(251,191,36,.06); border-color: var(--gold);
+}
+.conf-bar {
+  display: inline-block; height: 4px; border-radius: 2px;
+  margin-left: 6px; vertical-align: middle; background: var(--green);
+}
+.conf-bar.possible { background: var(--gold); }
+
+/* ── COMPANY CARD ────────────────────────────────────────── */
+.card {
+  background: var(--sf2); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 12px; margin-bottom: 8px;
+  cursor: pointer; transition: all .18s;
+}
+.card:hover { border-color: var(--border2); transform: translateY(-1px);
+              box-shadow: 0 4px 16px rgba(0,0,0,.3); }
+.card.active { border-color: var(--blue); background: rgba(59,130,246,.05); }
+.card.fastest { border-color: rgba(251,191,36,.4); background: rgba(251,191,36,.03); }
+
+.card-head { display: flex; justify-content: space-between;
+             align-items: flex-start; gap: 6px; margin-bottom: 8px; }
+.card-name { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+.rank {
+  width: 22px; height: 22px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800; flex-shrink: 0;
+}
+
+/* ── DISTANCE BAR ────────────────────────────────────────── */
+.dist-bar {
+  display: flex; background: var(--bg); border-radius: 7px;
+  overflow: hidden; margin-bottom: 8px;
+}
+.dc { flex: 1; padding: 8px 11px; }
+.dc + .dc { border-left: 1px solid var(--border); }
+.dc-lbl {
+  font-size: 10px; font-weight: 700; color: var(--text3);
+  text-transform: uppercase; letter-spacing: .6px; margin-bottom: 3px;
+}
+.dc-val {
+  font-size: 20px; font-weight: 800;
+  font-variant-numeric: tabular-nums; line-height: 1;
+}
+.dc-val .u { font-size: 12px; font-weight: 600; margin-left: 2px; }
+.dc-val.hi { color: var(--amber); }
+.ftag {
+  display: inline-block; background: var(--amber-g); color: var(--amber);
+  font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 4px;
+  letter-spacing: .4px; margin-left: 5px; vertical-align: middle;
+  text-transform: uppercase;
+}
+
+/* ── CARD INFO ───────────────────────────────────────────── */
+.card-info { margin-bottom: 8px; }
+.ci { font-size: 12px; color: var(--text2); margin-bottom: 2px;
+      display: flex; gap: 6px; align-items: baseline; }
+.ci span { color: var(--text); }
+
+/* ── CARD ACTIONS ────────────────────────────────────────── */
+.card-acts { display: flex; gap: 5px; }
+.ca {
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  padding: 7px 10px; border-radius: 7px; border: none;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  text-decoration: none; transition: all .15s; white-space: nowrap;
+}
+.ca.primary { flex: 1; background: var(--blue); color: #fff; }
+.ca.primary:hover { background: #2563eb; }
+.ca.ghost { background: var(--sf3); border: 1px solid var(--border2); color: var(--text2); }
+.ca.ghost:hover { border-color: var(--amber); color: var(--amber); }
+.ca.green-ghost:hover { border-color: var(--green); color: var(--green); }
+.ca.gmaps { background: #1a73e8; color: #fff; border: none; }
+.ca.gmaps:hover { background: #1557b0; }
+.sa.gmaps { background: #1a73e8; color: #fff; }
+.sa.gmaps:hover { opacity: .85; }
+/* Google Alternatives Bar */
+.galt-bar { background:rgba(26,115,232,.07); border:1px solid rgba(26,115,232,.2);
+            border-radius:var(--r); padding:12px 14px; margin-bottom:10px; }
+.galt-title { font-size:11px; font-weight:700; color:var(--text2); margin-bottom:8px;
+              text-transform:uppercase; letter-spacing:.5px; }
+.galt-btns { display:flex; gap:6px; flex-wrap:wrap; }
+.galt-btn { display:flex; align-items:center; gap:5px; padding:7px 12px; border-radius:7px;
+            border:none; font-size:12px; font-weight:600; cursor:pointer;
+            text-decoration:none; transition:all .15s; white-space:nowrap; }
+.galt-btn.gsearch { background:#1a73e8; color:#fff; }
+.galt-btn.gsearch:hover { background:#1557b0; }
+.galt-btn.qadd { background:var(--green); color:#fff; }
+.galt-btn.qadd:hover { opacity:.85; }
+/* Quick Add Modal */
+.qa-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:4px; }
+/* Diagnostic banner */
+.diag-banner { background:rgba(245,158,11,.08); border:1px solid rgba(245,158,11,.25);
+               border-radius:8px; padding:8px 12px; font-size:12px; color:var(--amber);
+               margin-bottom:8px; line-height:1.5; }
+.diag-banner a { color:var(--amber); font-weight:700; text-decoration:underline; cursor:pointer; }
+
+/* ── EMPTY STATE ─────────────────────────────────────────── */
+.empty { text-align: center; padding: 36px 16px; }
+.empty-ico { font-size: 38px; margin-bottom: 10px; opacity: .4; }
+.empty p { color: var(--text2); font-size: 13px; line-height: 1.65; }
+.legend-grid { display: flex; flex-direction: column; gap: 5px; margin-top: 14px; }
+.legend-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; background: var(--sf2);
+  border: 1px solid var(--border); border-radius: 8px; font-size: 12px;
+}
+
+/* ── MAP ─────────────────────────────────────────────────── */
+.map-wrap { flex: 1; position: relative; }
+#map, #mapSnow { width: 100%; height: 100%; }
+
+.map-loader {
+  position: absolute; inset: 0; z-index: 1000;
+  background: rgba(11,14,20,.82); backdrop-filter: blur(6px);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.spinner {
+  width: 38px; height: 38px; border: 3px solid var(--border);
+  border-top-color: var(--amber); border-radius: 50%;
+  animation: spin .7s linear infinite; margin-bottom: 12px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loader-msg { font-size: 13px; color: var(--text2); }
+.loader-sub { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+.map-key {
+  position: absolute; bottom: 24px; left: 12px; z-index: 500;
+  background: rgba(20,24,33,.92); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 12px; font-size: 11px;
+  backdrop-filter: blur(4px); display: none;
+}
+.map-key.on { display: block; }
+.mk-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.mk-row:last-child { margin: 0; }
+.mk-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── ADMIN ───────────────────────────────────────────────── */
+#vAdmin { padding: 24px; gap: 18px; }
+.pg-title { font-size: 19px; font-weight: 700; margin-bottom: 4px; }
+.pg-sub { font-size: 13px; color: var(--text2); margin-bottom: 18px; }
+.adm-grid { display: grid; grid-template-columns: 370px 1fr; gap: 18px; align-items: start; }
+.box { background: var(--sf); border: 1px solid var(--border); border-radius: var(--r); padding: 18px; }
+.box-title { font-size: 14px; font-weight: 700; margin-bottom: 14px; }
+.fl { margin-bottom: 11px; }
+.fl-lbl { font-size: 10px; font-weight: 800; color: var(--text2); text-transform: uppercase;
+          letter-spacing: .6px; margin-bottom: 5px; display: block; }
+.fi { width: 100%; padding: 8px 10px; background: var(--bg); border: 1px solid var(--border2);
+      border-radius: 7px; color: var(--text); font-size: 13px; outline: none; transition: border .15s; }
+.fi:focus { border-color: var(--amber); }
+.fbtns { display: flex; gap: 8px; margin-top: 5px; }
+.btn { padding: 8px 16px; border-radius: 7px; font-size: 13px; font-weight: 600;
+       cursor: pointer; border: none; transition: all .15s; }
+.btn:hover { opacity: .85; }
+.btn.amber { background: var(--amber); color: #000; }
+.btn.gray { background: var(--sf2); color: var(--text2); }
+.btn.red { background: var(--red); color: #fff; }
+.btn.sm { padding: 5px 10px; font-size: 12px; }
+.csv-drop {
+  border: 2px dashed var(--border2); border-radius: 8px; padding: 16px 12px;
+  text-align: center; cursor: pointer; transition: all .15s; margin-top: 12px;
+}
+.csv-drop:hover { border-color: var(--amber); background: var(--amber-g); }
+.tbl-hd { display: flex; justify-content: space-between; align-items: center;
+          margin-bottom: 14px; gap: 12px; }
+.tbl-hd .box-title { margin: 0; }
+.tbl-acts { display: flex; gap: 8px; align-items: center; }
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th { padding: 8px 10px; text-align: left; font-size: 10px; font-weight: 800;
+     color: var(--text2); text-transform: uppercase; letter-spacing: .6px;
+     border-bottom: 1px solid var(--border); background: rgba(11,14,20,.5); }
+td { padding: 9px 10px; font-size: 13px; border-bottom: 1px solid var(--border); vertical-align: top; }
+tr:last-child td { border: none; }
+tr:hover td { background: rgba(28,34,50,.6); }
+.td-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+/* ── LEAFLET OVERRIDES ───────────────────────────────────── */
+.leaflet-popup-content-wrapper {
+  background: var(--sf2) !important; color: var(--text) !important;
+  border: 1px solid var(--border) !important; border-radius: 10px !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,.55) !important;
+}
+.leaflet-popup-tip { background: var(--sf2) !important; }
+.leaflet-popup-content { margin: 12px 14px !important; font-size: 13px !important; line-height: 1.6 !important; }
+.leaflet-popup-close-button { color: var(--text2) !important; }
+.leaflet-control-zoom a {
+  background: var(--sf) !important; color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+.leaflet-control-zoom a:hover { background: var(--sf2) !important; }
+.leaflet-control-attribution { background: rgba(11,14,20,.8) !important; color: var(--text3) !important; }
+.leaflet-control-attribution a { color: var(--text2) !important; }
+
+/* ── TOASTS ─────────────────────────────────────────────── */
+.tstack { position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+          display: flex; flex-direction: column; gap: 7px; }
+.toast {
+  padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 500;
+  box-shadow: 0 4px 16px rgba(0,0,0,.5); animation: tin .25s ease; max-width: 310px;
+}
+.toast.ok  { background: #15803d; color: #fff; }
+.toast.err { background: #b91c1c; color: #fff; }
+.toast.inf { background: var(--sf2); color: var(--text); border: 1px solid var(--border); }
+@keyframes tin { from { transform: translateX(110%); opacity: 0; }
+                 to   { transform: translateX(0);    opacity: 1; } }
+
+
+/* ══ SNOW REMOVAL TAB ══════════════════════════════════════ */
+:root { --ice:#60a5fa; --ice-d:#3b82f6; --ice-g:rgba(96,165,250,.1); }
+.rbtn.sno.on { background:var(--ice-g); border-color:var(--ice); color:var(--ice); }
+.btn-find.snow { background:var(--ice); }
+.btn-find.snow:hover { background:var(--ice-d); }
+.snow-subtabs { display:flex; border-bottom:1px solid var(--border); flex-shrink:0; }
+.stab { flex:1; padding:9px 4px; background:none; border:none; border-bottom:2px solid transparent;
+        color:var(--text2); cursor:pointer; font-size:12px; font-weight:500; transition:all .15s; }
+.stab:hover { color:var(--text); }
+.stab.on { color:var(--ice); border-bottom-color:var(--ice); font-weight:700; }
+/* Snow result card */
+.scard { background:var(--sf2); border:1px solid var(--border); border-radius:var(--r);
+         padding:13px; margin-bottom:8px; transition:all .18s; }
+.scard:hover { border-color:var(--border2); box-shadow:0 4px 14px rgba(0,0,0,.3); }
+.scard.landscaping { border-left:3px solid var(--amber); }
+.scard-head { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; gap:6px; }
+.scard-name { font-weight:700; font-size:14px; flex:1; min-width:0;
+              white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.svc-row { display:flex; gap:5px; flex-wrap:wrap; margin-bottom:8px; }
+.svc { padding:2px 8px; border-radius:5px; font-size:11px; font-weight:600; }
+.svc.yes { background:var(--green-g); color:var(--green); }
+.svc.no  { background:var(--red-g); color:var(--red); }
+.svc.unk { background:var(--sf3); color:var(--text3); }
+.scard-info { margin-bottom:8px; }
+.si { font-size:12px; color:var(--text2); margin-bottom:3px; display:flex; gap:6px; align-items:baseline; }
+.si span { color:var(--text); }
+.si a { color:var(--ice); text-decoration:none; }
+.si a:hover { text-decoration:underline; }
+.scard-acts { display:flex; gap:5px; flex-wrap:wrap; }
+.sa { display:flex; align-items:center; justify-content:center; gap:4px;
+      padding:6px 9px; border-radius:7px; border:none; font-size:12px; font-weight:600;
+      cursor:pointer; text-decoration:none; transition:all .15s; white-space:nowrap; }
+.sa.call { background:var(--green); color:#fff; }
+.sa.call:hover { opacity:.85; }
+.sa.email { background:var(--ice); color:#fff; }
+.sa.email:hover { opacity:.85; }
+.sa.web { background:var(--sf3); border:1px solid var(--border2); color:var(--text2); }
+.sa.web:hover { border-color:var(--ice); color:var(--ice); }
+.sa.save-btn { background:var(--amber-g); border:1px solid var(--amber); color:var(--amber); }
+.sa.save-btn:hover { background:var(--amber); color:#000; }
+/* Rating */
+.rating-row { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text2); margin-bottom:6px; }
+.stars { color:#f59e0b; letter-spacing:1px; }
+/* Notes pill */
+.notes-pill { background:var(--sf3); border-radius:5px; padding:4px 8px;
+              font-size:11px; color:var(--text2); margin-top:5px; font-style:italic; }
+/* Expand banner */
+.expand-banner { background:rgba(245,158,11,.08); border:1px solid rgba(245,158,11,.25);
+                 border-radius:8px; padding:8px 12px; font-size:12px; color:var(--amber); margin-bottom:10px; }
+/* Saved vendors */
+.sv-card { background:var(--sf2); border:1px solid var(--border); border-radius:8px;
+           padding:12px; margin-bottom:8px; }
+.sv-card-head { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px; }
+.sv-name { font-weight:700; font-size:13px; }
+/* Tracker */
+.trk-form { background:var(--sf2); border:1px solid var(--border); border-radius:8px;
+             padding:14px; margin-bottom:12px; }
+.trk-form-title { font-size:13px; font-weight:700; margin-bottom:10px; }
+.trk-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px; }
+.trk-table { width:100%; border-collapse:collapse; font-size:12px; }
+.trk-table th { padding:6px 8px; text-align:left; font-size:10px; font-weight:800;
+                color:var(--text2); text-transform:uppercase; letter-spacing:.5px;
+                border-bottom:1px solid var(--border); background:rgba(11,14,20,.5); }
+.trk-table td { padding:8px; border-bottom:1px solid var(--border); vertical-align:top; }
+.trk-table tr:last-child td { border:none; }
+.trk-table tr:hover td { background:rgba(28,34,50,.5); }
+/* Modal */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.65); z-index:3000;
+                 display:flex; align-items:center; justify-content:center; backdrop-filter:blur(4px); }
+.modal-box { background:var(--sf); border:1px solid var(--border2); border-radius:var(--r);
+             padding:22px; width:420px; max-width:94vw; max-height:88vh; overflow-y:auto; }
+.modal-title { font-size:15px; font-weight:700; margin-bottom:14px; color:var(--ice); }
+.modal-fl { margin-bottom:10px; }
+.modal-fl label { font-size:10px; font-weight:800; color:var(--text2); text-transform:uppercase;
+                  letter-spacing:.5px; margin-bottom:4px; display:block; }
+.modal-fi { width:100%; padding:7px 10px; background:var(--bg); border:1px solid var(--border2);
+            border-radius:6px; color:var(--text); font-size:13px; outline:none; }
+.modal-fi:focus { border-color:var(--ice); }
+.modal-checks { display:flex; flex-direction:column; gap:7px; margin-bottom:10px; }
+.modal-check { display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; }
+.modal-check input { width:16px; height:16px; cursor:pointer; accent-color:var(--ice); }
+.modal-btns { display:flex; gap:8px; margin-top:14px; }
+.mbtn { padding:8px 18px; border-radius:7px; border:none; font-size:13px; font-weight:700;
+        cursor:pointer; transition:all .15s; }
+.mbtn.ice { background:var(--ice); color:#fff; }
+.mbtn.ice:hover { background:var(--ice-d); }
+.mbtn.ghost { background:var(--sf2); color:var(--text2); }
+/* Export bar */
+.export-bar { display:flex; justify-content:space-between; align-items:center;
+              padding:8px 2px; font-size:12px; color:var(--text2); margin-bottom:4px; }
+.btn-export { padding:5px 12px; background:var(--sf3); border:1px solid var(--border2);
+              border-radius:6px; color:var(--text2); font-size:12px; font-weight:600;
+              cursor:pointer; transition:all .15s; }
+.btn-export:hover { border-color:var(--ice); color:var(--ice); }
+
+.dn { display: none !important; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- ══ HEADER ═══════════════════════════════════════════════ -->
+<div class="hdr">
+  <div class="brand">
+    <span style="font-size:22px">🚛</span>
+    Tow<em>Locator</em> Pro
+    <sub>· OpenStreetMap</sub>
+  </div>
+  <div class="tabs">
+    <button class="tab on" onclick="switchTab('Search',this)">🔍 Find Towing</button>
+    <button class="tab"    onclick="switchTab('Snow',this)">❄️ Snow Removal</button>
+    <button class="tab"    onclick="switchTab('Admin',this)">⚙️ Admin</button>
+  </div>
+</div>
+
+<!-- ══ SEARCH VIEW ═══════════════════════════════════════════ -->
+<div id="vSearch" class="view on">
+  <div class="sidebar">
+
+    <!-- Search panel -->
+    <div class="srch-panel">
+      <div class="srch-label">Dispatch Lookup</div>
+
+      <div class="addr-wrap">
+        <input class="addr-input" id="addrIn"
+               placeholder="Enter parking facility address…"
+               onkeydown="if(event.key==='Enter')doSearch()"/>
+        <button class="addr-clear" onclick="clearSearch()" title="Clear">×</button>
+      </div>
+
+      <div class="ctrl-row">
+        <span class="ctrl-label">Radius:</span>
+        <div class="radius-btns">
+          <button class="rbtn on" onclick="setR(5,this)">5 mi</button>
+          <button class="rbtn"    onclick="setR(10,this)">10 mi</button>
+          <button class="rbtn"    onclick="setR(15,this)">15 mi</button>
+          <button class="rbtn"    onclick="setR(25,this)">25 mi</button>
+        </div>
+      </div>
+
+      <button class="btn-find" id="findBtn" onclick="doSearch()">
+        🔍 Find Towing Companies
+      </button>
+    </div>
+
+    <!-- Active route strip -->
+    <div class="route-strip" id="routeStrip">
+      <span style="color:var(--blue);font-size:16px">📡</span>
+      <span class="route-strip-name" id="routeName"></span>
+      <div class="route-strip-stats">
+        <span id="routeMi"></span>
+        <span id="routeEta"></span>
+      </div>
+      <button class="route-clear" onclick="clearRoute()" title="Clear route">×</button>
+    </div>
+
+    <!-- Results -->
+    <div class="results" id="results">
+      <div class="empty">
+        <div class="empty-ico">🗺️</div>
+        <p>Enter a facility address to search approved partners and nearby towing companies via OpenStreetMap.</p>
+        <div class="legend-grid">
+          <div class="legend-row">
+            <span class="badge sg">⭐ Suggested</span>
+            <span style="color:var(--text2)">Fastest estimated arrival</span>
+          </div>
+          <div class="legend-row">
+            <span class="badge pt">✅ Partnered</span>
+            <span style="color:var(--text2)">In your approved master list</span>
+          </div>
+          <div class="legend-row">
+            <span class="badge nt">🆕 New Towing</span>
+            <span style="color:var(--text2)">Found on OpenStreetMap</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Map -->
+  <div class="map-wrap">
+    <div id="map"></div>
+
+    <!-- Loading overlay -->
+    <div class="map-loader dn" id="loader">
+      <div class="spinner"></div>
+      <div class="loader-msg" id="loaderMsg">Locating facility…</div>
+      <div class="loader-sub" id="loaderSub"></div>
+    </div>
+
+    <!-- Map legend -->
+    <div class="map-key" id="mapKey">
+      <div class="mk-row"><div class="mk-dot" style="background:#ef4444"></div><span style="color:var(--text2)">Parking Facility</span></div>
+      <div class="mk-row"><div class="mk-dot" style="background:#f59e0b"></div><span style="color:var(--text2)">#1 — Fastest</span></div>
+      <div class="mk-row"><div class="mk-dot" style="background:#10b981"></div><span style="color:var(--text2)">Partnered</span></div>
+      <div class="mk-row"><div class="mk-dot" style="background:#6b7280"></div><span style="color:var(--text2)">New Towing</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ADMIN VIEW ════════════════════════════════════════════ -->
+<div id="vAdmin" class="view">
+  <div class="pg-title">Towing Partner Master List</div>
+  <div class="pg-sub">
+    Companies listed here are tagged
+    <span class="badge pt" style="vertical-align:middle">✅ Partnered</span>
+    when matched in search results. All other companies found on OpenStreetMap are tagged
+    <span class="badge nt" style="vertical-align:middle">🆕 New Towing</span>.
+  </div>
+
+  <div class="adm-grid">
+    <!-- Form -->
+    <div>
+      <div class="box">
+        <div class="box-title" id="formTitle">➕ Add Partner</div>
+        <div class="fl"><label class="fl-lbl">Company Name *</label>
+          <input class="fi" id="fName" placeholder="ABC Towing Inc."/></div>
+        <div class="fl">
+          <label class="fl-lbl">Address * <span id="addrGeoStatus" style="font-size:10px;font-weight:400;color:var(--text3)"></span></label>
+          <input class="fi" id="fAddr" placeholder="123 Main St, Chicago, IL 60601" oninput="updateAddrGeoStatus()"/></div>
+        <div class="fl"><label class="fl-lbl">Phone</label>
+          <input class="fi" id="fPhone" placeholder="(555) 123-4567"/></div>
+        <div class="fl"><label class="fl-lbl">Contact Person</label>
+          <input class="fi" id="fContact" placeholder="Name or role"/></div>
+        <div class="fl"><label class="fl-lbl">Email</label>
+          <input class="fi" id="fEmail" placeholder="dispatch@example.com"/></div>
+        <div class="fl"><label class="fl-lbl">Market</label>
+          <input class="fi" id="fMkt" placeholder="Chicago, IL"/></div>
+        <div class="fl"><label class="fl-lbl">Status</label>
+          <select class="fi" id="fStatus">
+            <option value="Active">✅ Active Partner</option>
+            <option value="Inactive">❌ Inactive</option>
+          </select></div>
+        <div class="fbtns">
+          <button class="btn amber" onclick="savePartner()">💾 Save</button>
+          <button class="btn gray"  onclick="resetForm()">✕ Cancel</button>
+        </div>
+      </div>
+
+      <div class="box" style="margin-top:14px">
+        <div class="box-title">📂 Bulk CSV Upload</div>
+        <p style="font-size:12px;color:var(--text2);line-height:1.65;margin-bottom:4px">
+          Required: <code style="color:var(--amber)">Name, Address</code><br>
+          Optional: <code style="color:var(--text2)">Phone, Contact, Email, Market, Status</code>
+        </p>
+        <div class="csv-drop" onclick="document.getElementById('csvIn').click()">
+          <input type="file" id="csvIn" accept=".csv" style="display:none" onchange="importCSV(this)"/>
+          <div style="font-size:26px;margin-bottom:5px">📁</div>
+          <div style="font-size:13px;color:var(--text2)">Click to upload CSV</div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn gray sm" onclick="exportTemplate()">⬇️ Template</button>
+          <button class="btn gray sm" onclick="restoreMaster()">🔄 Restore Master List</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="box">
+      <div class="tbl-hd">
+        <div class="box-title">Partners (<span id="coCount">0</span>)</div>
+        <div class="tbl-acts">
+          <input class="fi" id="tblQ" placeholder="Search…"
+                 oninput="renderTable()" style="width:150px"/>
+          <button class="btn gray sm" onclick="geocodeAllPending()" title="Geocode all partners missing coordinates">📍 Geocode Pending</button>
+          <button class="btn red sm" onclick="clearAll()">🗑 Clear All</button>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Company</th><th>Market</th><th>Status</th>
+              <th>Phone</th><th>Contact</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="tblBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ SNOW REMOVAL VIEW ════════════════════════════════════ -->
+<div id="vSnow" class="view">
+  <div class="sidebar">
+
+    <!-- Search panel -->
+    <div class="srch-panel">
+      <div class="srch-label" style="color:var(--ice)">❄️ Snow Removal Finder</div>
+      <div class="addr-wrap">
+        <input class="addr-input" id="snowAddrIn"
+               placeholder="Address, City, State, or ZIP…"
+               onkeydown="if(event.key==='Enter')doSnowSearch()"/>
+        <button class="addr-clear" onclick="clearSnowSearch()" title="Clear">×</button>
+      </div>
+      <div class="ctrl-row">
+        <span class="ctrl-label">Radius:</span>
+        <div class="radius-btns">
+          <button class="rbtn sno on" onclick="setSnowR(5,this)">5 mi</button>
+          <button class="rbtn sno"    onclick="setSnowR(10,this)">10 mi</button>
+          <button class="rbtn sno"    onclick="setSnowR(25,this)">25 mi</button>
+          <button class="rbtn sno"    onclick="setSnowR(50,this)">50 mi</button>
+        </div>
+      </div>
+      <button class="btn-find snow" id="snowFindBtn" onclick="doSnowSearch()">
+        ❄️ Find Snow Removal Companies
+      </button>
+    </div>
+
+    <!-- Sub-tabs -->
+    <div class="snow-subtabs">
+      <button class="stab on" onclick="switchSnowTab('results',this)">🔍 Results</button>
+      <button class="stab"    onclick="switchSnowTab('saved',this)">💾 Saved Vendors</button>
+      <button class="stab"    onclick="switchSnowTab('tracker',this)">📋 Tracker</button>
+    </div>
+
+    <!-- Results panel -->
+    <div class="results" id="snowResults">
+      <div class="empty">
+        <div class="empty-ico">❄️</div>
+        <p>Enter a facility address to find snow removal companies via OpenStreetMap.<br><br>
+        If no snow companies are found, the search automatically expands to nearby landscaping and property maintenance companies.</p>
+      </div>
+    </div>
+
+    <!-- Saved Vendors panel -->
+    <div class="results dn" id="snowSaved">
+      <div id="snowSavedList">
+        <div class="empty"><div class="empty-ico">💾</div>
+          <p>No vendors saved yet. Search for companies and click <b>Save</b> to add them here.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tracker panel -->
+    <div class="results dn" id="snowTracker">
+      <div class="trk-form">
+        <div class="trk-form-title">➕ Log Vendor Assignment</div>
+        <div class="trk-grid">
+          <div><label class="fl-lbl">Facility Name</label>
+            <input class="modal-fi" id="trkFacility" placeholder="123 Main Parking"/></div>
+          <div><label class="fl-lbl">Vendor Name</label>
+            <input class="modal-fi" id="trkVendor" placeholder="ABC Snow Removal"/></div>
+          <div><label class="fl-lbl">Contact Person</label>
+            <input class="modal-fi" id="trkContact" placeholder="John Smith"/></div>
+          <div><label class="fl-lbl">Cost per Visit</label>
+            <input class="modal-fi" id="trkCost" placeholder="$250"/></div>
+        </div>
+        <label class="fl-lbl">Notes</label>
+        <textarea class="modal-fi" id="trkNotes" rows="2"
+                  placeholder="Pricing details, schedule, special instructions…" style="resize:vertical"></textarea>
+        <div style="margin-top:8px">
+          <button class="mbtn ice" onclick="addTrackerRow()">➕ Add Entry</button>
+        </div>
+      </div>
+      <div id="trackerTable">
+        <div class="empty"><div class="empty-ico">📋</div>
+          <p>No tracker entries yet. Log vendor assignments above.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Snow Map -->
+  <div class="map-wrap">
+    <div id="mapSnow"></div>
+    <div class="map-loader dn" id="snowLoader">
+      <div class="spinner" style="border-top-color:var(--ice)"></div>
+      <div class="loader-msg" id="snowLoaderMsg">Searching…</div>
+      <div class="loader-sub" id="snowLoaderSub"></div>
+    </div>
+    <div class="map-key dn" id="snowMapKey">
+      <div class="mk-row"><div class="mk-dot" style="background:#ef4444"></div><span style="color:var(--text2)">Facility</span></div>
+      <div class="mk-row"><div class="mk-dot" style="background:#60a5fa"></div><span style="color:var(--text2)">Snow Removal</span></div>
+      <div class="mk-row"><div class="mk-dot" style="background:#f59e0b"></div><span style="color:var(--text2)">Landscaping</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SAVE VENDOR MODAL ════════════════════════════════════ -->
+<div class="modal-overlay dn" id="saveModal">
+  <div class="modal-box">
+    <div class="modal-title">❄️ Save Snow Vendor</div>
+    <input type="hidden" id="saveVendorId"/>
+    <div class="modal-fl">
+      <label>Company Name</label>
+      <input class="modal-fi" id="svName" readonly style="opacity:.7"/>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="modal-fl">
+        <label>Phone</label>
+        <input class="modal-fi" id="svPhone" placeholder="(555) 123-4567"/>
+      </div>
+      <div class="modal-fl">
+        <label>Email</label>
+        <input class="modal-fi" id="svEmail" placeholder="info@company.com"/>
+      </div>
+    </div>
+    <div class="modal-fl">
+      <label>Website</label>
+      <input class="modal-fi" id="svWebsite" placeholder="https://"/>
+    </div>
+    <div class="modal-fl">
+      <label>Service Area</label>
+      <input class="modal-fi" id="svArea" placeholder="Chicago, IL and suburbs"/>
+    </div>
+    <div class="modal-fl">
+      <label>Google Rating (manual)</label>
+      <input class="modal-fi" id="svRating" type="number" step="0.1" min="1" max="5" placeholder="e.g. 4.7"/>
+    </div>
+    <div class="modal-fl">
+      <label>Services Offered</label>
+      <div class="modal-checks">
+        <label class="modal-check"><input type="checkbox" id="sv24h"/> ☁️ 24/7 Emergency Service</label>
+        <label class="modal-check"><input type="checkbox" id="svComm"/> 🏢 Commercial Parking Lot Service</label>
+        <label class="modal-check"><input type="checkbox" id="svSalt"/> 🧂 Salt / Ice Management</label>
+      </div>
+    </div>
+    <div class="modal-fl">
+      <label>Pricing / Notes</label>
+      <textarea class="modal-fi" id="svNotes" rows="3"
+                placeholder="Per visit cost, contract details, seasonal rate…" style="resize:vertical"></textarea>
+    </div>
+    <div class="modal-btns">
+      <button class="mbtn ice" onclick="confirmSaveVendor()">💾 Save Vendor</button>
+      <button class="mbtn ghost" onclick="closeSaveModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ QUICK ADD COMPANY MODAL ════════════════════════════ -->
+<div class="modal-overlay dn" id="qaModal">
+  <div class="modal-box" style="width:480px">
+    <div class="modal-title" id="qaTitle">➕ Quick Add Company</div>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:14px">
+      Found a company on Google? Add it here and it will be saved to the master list and geocoded immediately.
+    </p>
+    <input type="hidden" id="qaType"/>
+    <div class="modal-fl">
+      <label>Company Name *</label>
+      <input class="modal-fi" id="qaName" placeholder="ABC Towing Inc."/>
+    </div>
+    <div class="qa-grid">
+      <div class="modal-fl">
+        <label>Phone</label>
+        <input class="modal-fi" id="qaPhone" placeholder="(555) 123-4567"/>
+      </div>
+      <div class="modal-fl">
+        <label>Email</label>
+        <input class="modal-fi" id="qaEmail" placeholder="info@company.com"/>
+      </div>
+    </div>
+    <div class="modal-fl">
+      <label>Address</label>
+      <input class="modal-fi" id="qaAddr" placeholder="123 Main St, Chicago, IL 60601"/>
+    </div>
+    <div class="modal-fl">
+      <label>Website</label>
+      <input class="modal-fi" id="qaWebsite" placeholder="https://"/>
+    </div>
+    <div class="modal-fl">
+      <label>Service Area / Market</label>
+      <input class="modal-fi" id="qaArea" placeholder="Chicago, IL and suburbs"/>
+    </div>
+    <div class="modal-fl">
+      <label>Notes (pricing, hours, etc.)</label>
+      <textarea class="modal-fi" id="qaNotes" rows="2"
+        placeholder="e.g. $150/visit, available 24/7, commercial lots only…" style="resize:vertical"></textarea>
+    </div>
+    <div id="qaExtraFields" class="dn">
+      <!-- Snow-only fields -->
+      <div class="modal-fl">
+        <label>Services Offered</label>
+        <div class="modal-checks">
+          <label class="modal-check"><input type="checkbox" id="qa24h"/> ☁️ 24/7 Emergency Service</label>
+          <label class="modal-check"><input type="checkbox" id="qaComm"/> 🏢 Commercial Parking Lots</label>
+          <label class="modal-check"><input type="checkbox" id="qaSalt"/> 🧂 Salt / Ice Management</label>
+        </div>
+      </div>
+    </div>
+    <div id="qaGeoStatus" style="font-size:12px;color:var(--text2);margin:8px 0;min-height:18px"></div>
+    <div class="modal-btns">
+      <button class="mbtn ice" onclick="confirmQuickAdd()">💾 Save to Master List</button>
+      <button class="mbtn ghost" onclick="closeQA()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="tstack" id="toasts"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// MASTER LIST — 23 approved towing partners
+// ═══════════════════════════════════════════════════════════
+const MASTER_LIST = [
+  {id:'m01',name:'A1 Citywide Towing',       email:'a1citywidetowing@gmail.com',   contact:'',                phone:'(773) 539-2954', address:'2954 N California Ave, Chicago, IL 60618',          market:'Chicago, IL',      status:'Active', lat:41.9335, lng:-87.6986},
+  {id:'m02',name:'E&R Towing',               email:'ertowingmailgroup@vmsolutions.com', contact:'',           phone:'708-333-7300',   address:'16325 S Crawford Ave, Markham, IL 60428',           market:'Chicago, IL',      status:'Active', lat:41.5998, lng:-87.6960},
+  {id:'m03',name:'Lincoln Towing Service',   email:'bob@lincolntowing.com',        contact:'Bob / Rebecca',   phone:'(773) 561-4433', address:'4882 N Clark St, Chicago, IL 60640',               market:'Chicago, IL',      status:'Active', lat:41.9658, lng:-87.6572},
+  {id:'m04',name:'North Shore Towing',       email:'dispatch@northshore-inc.com',  contact:'Mark',            phone:'773-407-9500',   address:'2527 Oakton St, Evanston, IL 60202',               market:'Chicago, IL',      status:'Active', lat:42.0545, lng:-87.7099},
+  {id:'m05',name:'Rendered Services, Inc.',  email:'bnestos@rsi-chicago.com',      contact:'William Nestos', phone:'(773) 878-1111', address:'2019 W Rascher Ave, Chicago, IL 60625',            market:'Chicago, IL',      status:'Active', lat:41.9671, lng:-87.6829},
+  {id:'m06',name:'XL Towing Chicago',        email:'DISPATCH@xltowing.com',        contact:'',               phone:'(773) 434-9731', address:'411 N Wolcott Ave, Chicago, IL 60622',             market:'Chicago, IL',      status:'Active', lat:41.8900, lng:-87.6797},
+  {id:'m07',name:'B&B Towing Inc.',          email:'bbtowing@aol.com',             contact:'Michael Sorrentino', phone:'617-492-5781',address:'50 R Mooney St, Cambridge, MA 02138',             market:'Boston, MA',       status:'Active', lat:42.3718, lng:-71.1191},
+  {id:'m08',name:'Bostonian Towing Service', email:'bostoniantowing@hotmail.com',  contact:'',               phone:'(617) 547-0680', address:'162 Alewife Brook Pkwy, Cambridge, MA 02138',      market:'Boston, MA',       status:'Active', lat:42.3944, lng:-71.1424},
+  {id:'m09',name:'Brighton Towing',          email:'Brightontowing.srv@gmail.com', contact:'Javier Rives',   phone:'(617) 254-0036', address:'100 Hano St, Boston, MA 02134',                   market:'Boston, MA',       status:'Active', lat:42.3504, lng:-71.1544},
+  {id:'m10',name:'D & D Towing LLC',         email:'dwhe605849@aol.com',           contact:'Liz Wheeler',    phone:'617-464-8697',   address:'1 Ellery St, South Boston, MA 02127',              market:'Boston, MA',       status:'Active', lat:42.3374, lng:-71.0440},
+  {id:'m11',name:'D & G Towing & Auto Repair',email:'dgtowing@hotmail.com',        contact:'Gabriela Estrada',phone:'(617) 987-2111',address:'2 Emery Rd, Allston, MA 02134',                    market:'Boston, MA',       status:'Active', lat:42.3582, lng:-71.1382},
+  {id:'m12',name:'Quick Auto Center Corp.',  email:'quickcorp11@gmail.com',        contact:'',               phone:'(857) 800-7232', address:'30 Joy St, Somerville, MA 02143',                  market:'Boston, MA',       status:'Active', lat:42.3854, lng:-71.1015},
+  {id:'m13',name:'Roberts Towing, LLC',      email:'25goodenough@gmail.com',       contact:'Michael Valentino',phone:'(617) 782-2525',address:'25 Goodenough St, Brighton, MA 02135',            market:'Boston, MA',       status:'Active', lat:42.3487, lng:-71.1590},
+  {id:'m14',name:"Stanley's Towing",         email:'stanleyservice1925@gmail.com', contact:'',               phone:'617-522-4100',   address:'3430 Washington St, Jamaica Plain, MA 02130',      market:'Boston, MA',       status:'Active', lat:42.3110, lng:-71.1086},
+  {id:'m15',name:"Stephen's Automotive",     email:'info@stephenstow.com',         contact:'',               phone:'(617) 354-4000', address:'60 Union Street, Medford, MA 02155',               market:'Boston, MA',       status:'Active', lat:42.4218, lng:-71.1040},
+  {id:'m16',name:'Todisco Towing',           email:'dispatch@todiscotowing.com',   contact:'',               phone:'(617) 567-0700', address:'94 Condor Street, East Boston, MA 02128',          market:'Boston, MA',       status:'Active', lat:42.3797, lng:-71.0258},
+  {id:'m17',name:'Walsh Towing Co.',         email:'',                             contact:'Mary',           phone:'(617) 593-3860', address:'255 Southampton St, Boston, MA 02118',             market:'Boston, MA',       status:'Active', lat:42.3283, lng:-71.0807},
+  {id:'m18',name:'ANT Towing',               email:'ANTTOWINGSAFETY@yahoo.com',    contact:'Tabitha',        phone:'(202) 723-6000', address:'2209 Channing St NE, Washington, DC 20018',        market:'Washington, DC',   status:'Active', lat:38.9320, lng:-76.9797},
+  {id:'m19',name:'George Smith Towing, Inc.',email:'gsmithtow@gmail.com',          contact:'',               phone:'(215) 729-9100', address:'3103 S 61st Street, Philadelphia, PA 19153',       market:'Philadelphia, PA', status:'Active', lat:39.9261, lng:-75.2413},
+  {id:'m20',name:'Lew Blum Towing Co. Inc.', email:'hookasaurus@verizon.net',      contact:'',               phone:'215-222-5628',   address:'419 N 9th St, Philadelphia, PA 19123',             market:'Philadelphia, PA', status:'Active', lat:39.9618, lng:-75.1527},
+  {id:'m21',name:'Berrybrostow.com',         email:'missytowing2016@icloud.com',   contact:'Melissa Berry',  phone:'(510) 652-4655', address:'598 55th Street, Oakland, CA 94609',               market:'Oakland, CA',      status:'Active', lat:37.8374, lng:-122.2648},
+  {id:'m22',name:"Legend's Towing's LLC",    email:'jaystowingfl1167@gmail.com',   contact:'Julio Arias',    phone:'414-336-8792',   address:'3950 N Holton St, Milwaukee, WI 53212',            market:'Milwaukee, WI',    status:'Active', lat:43.1079, lng:-87.9071},
+  {id:'m23',name:'Majestic Towing',          email:'majestictowingllc@gmail.com',  contact:'Valisa Wagner',  phone:'720-775-2702',   address:'5353 Adams St, Denver, CO 80216',                  market:'Denver, CO',       status:'Active', lat:39.7784, lng:-104.9503},
+];
+
+// ═══════════════════════════════════════════════════════════
+// DATA STORE
+// ═══════════════════════════════════════════════════════════
+const STORE = 'towpro_v10';
+let db = [];
+const load  = () => { const r=localStorage.getItem(STORE); db=r?JSON.parse(r):JSON.parse(JSON.stringify(MASTER_LIST)); if(!r)save(); };
+const save  = () => localStorage.setItem(STORE, JSON.stringify(db));
+const newId = () => 'u'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+
+function restoreMaster(){
+  if(!confirm('Restore the official 23-company master list?\nManual changes will be lost.')) return;
+  db = JSON.parse(JSON.stringify(MASTER_LIST)); save(); renderTable();
+  toast('Master list restored — 23 partners loaded', 'ok');
+}
+
+// ═══════════════════════════════════════════════════════════
+// RADIUS
+// ═══════════════════════════════════════════════════════════
+let R = 5; // miles
+function setR(r, btn) {
+  R = r;
+  document.querySelectorAll('.rbtn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+}
+
+// ═══════════════════════════════════════════════════════════
+// NOMINATIM GEOCODING (3-service fallback)
+// ═══════════════════════════════════════════════════════════
+async function geocode(addr) {
+  const q = encodeURIComponent(addr);
+
+  // 1. Nominatim (OpenStreetMap)
+  try {
+    const r = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&addressdetails=1`,
+      { headers: { 'Accept-Language': 'en-US', 'User-Agent': 'TowLocatorPro/1.0' } }
+    );
+    if (r.ok) {
+      const d = await r.json();
+      if (d[0]) return { lat: +d[0].lat, lng: +d[0].lon };
+    }
+  } catch (_) {}
+
+  // 2. Photon by Komoot
+  try {
+    const r = await fetch(`https://photon.komoot.io/api/?q=${q}&limit=1`);
+    if (r.ok) {
+      const d = await r.json();
+      if (d.features?.[0]) {
+        const [lng, lat] = d.features[0].geometry.coordinates;
+        return { lat, lng };
+      }
+    }
+  } catch (_) {}
+
+  // 3. geocode.maps.co
+  try {
+    const r = await fetch(`https://geocode.maps.co/search?q=${q}`);
+    if (r.ok) {
+      const d = await r.json();
+      if (d[0]) return { lat: +d[0].lat, lng: +d[0].lon };
+    }
+  } catch (_) {}
+
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════
+// OVERPASS API — search OSM for towing companies
+// ═══════════════════════════════════════════════════════════
+async function searchOverpass(origin, radiusM) {
+  const { lat, lng } = origin;
+  const rm = Math.round(radiusM);
+
+  const q = `
+[out:json][timeout:30];
+(
+  node["amenity"="vehicle_rescue"](around:${rm},${lat},${lng});
+  way["amenity"="vehicle_rescue"](around:${rm},${lat},${lng});
+  node["emergency"="rescue"](around:${rm},${lat},${lng});
+  node["service"~"tow",i](around:${rm},${lat},${lng});
+  node["name"~"tow",i](around:${rm},${lat},${lng});
+  way["name"~"tow",i](around:${rm},${lat},${lng});
+);
+out center tags;`.trim();
+
+  try {
+    const res = await fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `data=${encodeURIComponent(q)}`
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+
+    const seen = new Set();
+    return (data.elements || [])
+      .filter(el => {
+        const n = el.tags?.name;
+        if (!n || seen.has(n.toLowerCase())) return false;
+        seen.add(n.toLowerCase());
+        return true;
+      })
+      .map(el => ({
+        id:      `osm-${el.id}`,
+        name:    el.tags.name,
+        lat:     el.lat  ?? el.center?.lat,
+        lng:     el.lon  ?? el.center?.lon,
+        phone:   el.tags.phone || el.tags['contact:phone'] || '',
+        address: osmAddr(el.tags),
+        website: el.tags.website || el.tags['contact:website'] || '',
+        fromOSM: true,
+      }))
+      .filter(c => c.lat && c.lng);
+  } catch (e) {
+    console.warn('Overpass error:', e.message);
+    return [];
+  }
+}
+
+function osmAddr(t) {
+  const p = [];
+  if (t['addr:housenumber'] && t['addr:street'])
+    p.push(`${t['addr:housenumber']} ${t['addr:street']}`);
+  else if (t['addr:street']) p.push(t['addr:street']);
+  if (t['addr:city'])     p.push(t['addr:city']);
+  if (t['addr:state'])    p.push(t['addr:state']);
+  if (t['addr:postcode']) p.push(t['addr:postcode']);
+  return p.join(', ');
+}
+
+// ═══════════════════════════════════════════════════════════
+// NOMINATIM PLACES SEARCH — text search for "towing" within bbox
+// This catches businesses that Overpass misses (poor OSM tags)
+// ═══════════════════════════════════════════════════════════
+async function searchNominatim(origin, radiusMiles) {
+  // Bounding box: viewbox = left,top,right,bottom (west,north,east,south)
+  const latD = radiusMiles / 69.0;
+  const lngD = latD / Math.cos(origin.lat * Math.PI / 180);
+  const bbox  = `${origin.lng - lngD},${origin.lat + latD},${origin.lng + lngD},${origin.lat - latD}`;
+
+  const searches = ['towing', 'tow truck'];
+  const raw = [];
+
+  for (const term of searches) {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search` +
+        `?q=${encodeURIComponent(term)}` +
+        `&viewbox=${bbox}&bounded=1` +
+        `&format=json&limit=40&addressdetails=0`,
+        { headers: { 'User-Agent': 'TowLocatorPro/1.0', 'Accept-Language': 'en-US' } }
+      );
+      if (!res.ok) continue;
+      const data = await res.json();
+      for (const d of data) {
+        if (!d.lat || !d.lon) continue;
+        const name = d.name || d.display_name.split(',')[0].trim();
+        if (!name) continue;
+        raw.push({
+          id:       `nom-${d.place_id}`,
+          name,
+          lat:      +d.lat,
+          lng:      +d.lon,
+          phone:    '',
+          address:  nomAddr(d.display_name),
+          website:  '',
+          fromOSM:  true,
+          fromNom:  true,
+        });
+      }
+    } catch (e) {
+      console.warn(`Nominatim "${term}" error:`, e.message);
+    }
+    await new Promise(r => setTimeout(r, 350)); // respect 1 req/sec rate limit
+  }
+  return raw;
+}
+
+function nomAddr(displayName) {
+  // "Business Name, Street, City, County, State, Country" → drop name + country
+  const parts = displayName.split(',').map(p => p.trim());
+  if (parts.length >= 4) return parts.slice(1, -2).join(', ');
+  if (parts.length >= 2) return parts.slice(1).join(', ');
+  return displayName;
+}
+
+// ═══════════════════════════════════════════════════════════
+// DEDUPLICATE — remove near-identical companies across sources
+// ═══════════════════════════════════════════════════════════
+function dedupResults(companies) {
+  const out = [];
+  for (const c of companies) {
+    const normC = c.name.toLowerCase().replace(/[^\w]/g, '');
+    const dup = out.some(o => {
+      // Same normalised name prefix (first 12 chars)
+      const normO = o.name.toLowerCase().replace(/[^\w]/g, '');
+      if (normC.slice(0, 12) === normO.slice(0, 12) && normC.length > 3) return true;
+      // Same location within ~80 m (0.05 mi)
+      if (c.lat && c.lng && o.lat && o.lng)
+        if (haversineRaw(c.lat, c.lng, o.lat, o.lng) < 0.05) return true;
+      return false;
+    });
+    if (!dup) out.push(c);
+  }
+  return out;
+}
+
+function haversineRaw(la1, lo1, la2, lo2) {
+  const R = 3958.8, r = Math.PI / 180;
+  const a = Math.sin((la2-la1)*r/2)**2 +
+            Math.cos(la1*r)*Math.cos(la2*r)*Math.sin((lo2-lo1)*r/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+// ═══════════════════════════════════════════════════════════
+// SMART MATCHING — multi-factor fuzzy comparison
+// Returns { partner, score, tier, reason } or null
+//   tier = 'partnered'  → 90–100% confidence  → ✅ Partnered
+//   tier = 'possible'   → 75–89%              → ⚠️ Possible Match
+//   tier = null / score < 75                  → 🆕 New Towing
+// ═══════════════════════════════════════════════════════════
+
+// Strip noise from a company name for comparison
+const SUFFIX_RE = /\b(llc|inc|corp|co|company|service|services|auto\s*repair|recovery|towing\s*(?:and|&)\s*recovery)\b/gi;
+
+function normName(s) {
+  return (s || '')
+    .toLowerCase()
+    .replace(/&/g, ' and ')         // & → and
+    .replace(/-/g, ' ')             // hyphens → space
+    .replace(SUFFIX_RE, '')         // drop suffixes
+    .replace(/\band\b/g, ' ')       // drop standalone "and"
+    .replace(/[^\w\s]/g, ' ')       // drop remaining punctuation
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normPhone(s) {
+  return (s || '').replace(/\D/g, '').slice(-10);
+}
+
+// Extract "123 emery" from any address format
+function normAddr(s) {
+  const m = (s || '').match(/(\d+)\D*([a-zA-Z]+)/);
+  return m ? `${m[1]} ${m[2].toLowerCase()}` : '';
+}
+
+// Email domain (ignore generic providers)
+const GENERIC_DOMAINS = new Set(['gmail.com','yahoo.com','hotmail.com','outlook.com','aol.com','icloud.com']);
+function emailDomain(s) {
+  const d = (s || '').split('@')[1]?.toLowerCase().trim() || '';
+  return GENERIC_DOMAINS.has(d) ? '' : d;
+}
+
+// Dice coefficient — bigram string similarity 0→1
+function dice(a, b) {
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  if (a.length < 2 || b.length < 2) return 0;
+  const bg = new Map();
+  for (let i = 0; i < a.length - 1; i++) {
+    const k = a.slice(i, i+2); bg.set(k, (bg.get(k)||0) + 1);
+  }
+  let inter = 0;
+  for (let i = 0; i < b.length - 1; i++) {
+    const k = b.slice(i, i+2); const n = bg.get(k)||0;
+    if (n > 0) { bg.set(k, n-1); inter++; }
+  }
+  return (2 * inter) / (a.length + b.length - 2);
+}
+
+// Main matching function
+function findPartner(name, phone, address, email) {
+  const ph   = normPhone(phone);
+  const nm   = normName(name);
+  const addr = normAddr(address);
+  const dom  = emailDomain(email);
+
+  let best = null, bestScore = 0;
+
+  for (const co of db) {
+    if (co.status === 'Inactive') continue;
+
+    // ── Factor 1: Phone number (exact) → instant 100% ──────
+    const coPh = normPhone(co.phone);
+    if (ph && coPh && ph === coPh) {
+      return { partner: co, score: 100, tier: 'partnered',
+               reason: `Phone match` };
+    }
+
+    // ── Factor 2: Email domain (non-generic) ────────────────
+    const coDom = emailDomain(co.email);
+    if (dom && coDom && dom === coDom) {
+      return { partner: co, score: 98, tier: 'partnered',
+               reason: `Email domain match (${dom})` };
+    }
+
+    // ── Factor 3: Name similarity (Dice on bigrams) ─────────
+    const coNm = normName(co.name);
+    const nameSim = Math.round(dice(nm, coNm) * 100);
+
+    // ── Factor 4: Street address (number + street word) ─────
+    const coAddr = normAddr(co.address);
+    const addrMatch = addr && coAddr && addr === coAddr;
+
+    // ── Composite score ─────────────────────────────────────
+    let score = nameSim;
+    // Address corroboration boosts borderline name matches
+    if (addrMatch && nameSim >= 55) score = Math.min(100, score + 18);
+
+    if (score > bestScore) {
+      bestScore = score;
+      best = { partner: co, score, nameSim, addrMatch };
+    }
+  }
+
+  if (!best || bestScore < 75) return null;
+
+  const reason = best.addrMatch
+    ? `Name ${best.nameSim}% + address match`
+    : `Name similarity ${best.score}%`;
+
+  return {
+    partner:  best.partner,
+    score:    best.score,
+    nameSim:  best.nameSim,
+    addrMatch:best.addrMatch,
+    tier:     best.score >= 90 ? 'partnered' : 'possible',
+    reason,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════
+// MERGE OSM + MASTER LIST
+// ═══════════════════════════════════════════════════════════
+function mergeResults(osmResults, masterInRange) {
+  const merged = osmResults.map(c => {
+    const m = findPartner(c.name, c.phone, c.address, c.email||'');
+    return {
+      ...c,
+      isPartner:   m?.tier === 'partnered',
+      isPossible:  m?.tier === 'possible',
+      partnerData: m?.partner  || null,
+      matchScore:  m?.score    || 0,
+      matchReason: m?.reason   || '',
+      matchedName: m?.partner?.name || '',
+      email:       m?.partner?.email   || c.email   || '',
+      contact:     m?.partner?.contact || c.contact || '',
+    };
+  });
+
+  // Append master-list companies not already surfaced by OSM
+  for (const mc of masterInRange) {
+    const already = merged.some(r =>
+      findPartner(r.name, r.phone, r.address, r.email)?.partner?.id === mc.id
+    );
+    if (!already) {
+      merged.push({
+        id: mc.id, name: mc.name, lat: mc.lat, lng: mc.lng,
+        phone: mc.phone, email: mc.email, contact: mc.contact,
+        address: mc.address, website: '',
+        isPartner: true, isPossible: false,
+        partnerData: mc, matchScore: 100,
+        matchReason: 'Master list', matchedName: mc.name,
+        fromOSM: false,
+      });
+    }
+  }
+  return merged;
+}
+
+// ═══════════════════════════════════════════════════════════
+// OSRM TABLE — batch driving distance & ETA
+// Endpoint: router.project-osrm.org/table/v1/driving/{coords}
+// ═══════════════════════════════════════════════════════════
+async function osrmTable(origin, companies) {
+  if (!companies.length) return [];
+  const cap = companies.slice(0, 30);
+
+  // facility first, then each company
+  const coords = [
+    `${origin.lng},${origin.lat}`,
+    ...cap.map(c => `${c.lng},${c.lat}`)
+  ].join(';');
+
+  try {
+    const res = await fetch(
+      `https://router.project-osrm.org/table/v1/driving/${coords}?sources=0&annotations=duration,distance`
+    );
+    if (!res.ok) throw new Error('OSRM HTTP ' + res.status);
+    const d = await res.json();
+    if (d.code !== 'Ok') throw new Error('OSRM code: ' + d.code);
+
+    const durs = d.durations[0]; // row 0 = from facility
+    const dsts = d.distances[0];
+
+    return cap.map((_, i) => {
+      const sec = durs[i + 1];  // +1: index 0 is facility→facility
+      const m   = dsts[i + 1];
+      if (sec == null || m == null) {
+        const mi = haversine(origin.lat, origin.lng, cap[i].lat, cap[i].lng);
+        return { distMi: mi, etaSec: Math.round(mi / 28 * 3600), etaTxt: etaFmt(mi / 28 * 3600) };
+      }
+      return { distMi: m / 1609.34, etaSec: Math.round(sec), etaTxt: etaFmt(sec) };
+    });
+  } catch (e) {
+    console.warn('OSRM Table fallback (haversine):', e.message);
+    return cap.map(c => {
+      const mi = haversine(origin.lat, origin.lng, c.lat, c.lng);
+      return { distMi: mi, etaSec: Math.round(mi / 28 * 3600), etaTxt: etaFmt(mi / 28 * 3600) };
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// OSRM ROUTE — draw single driving route on map
+// Endpoint: router.project-osrm.org/route/v1/driving/{coords}
+// ═══════════════════════════════════════════════════════════
+async function osrmRoute(fromLat, fromLng, toLat, toLng) {
+  try {
+    const url = `https://router.project-osrm.org/route/v1/driving/` +
+                `${fromLng},${fromLat};${toLng},${toLat}` +
+                `?overview=full&geometries=geojson`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const d = await res.json();
+    if (d.routes?.[0]) return d.routes[0].geometry;
+  } catch (e) {
+    console.warn('OSRM Route error:', e.message);
+  }
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════
+// DISTANCE / ETA HELPERS
+// ═══════════════════════════════════════════════════════════
+function haversine(la1, lo1, la2, lo2) {
+  const R = 3958.8, r = Math.PI / 180;
+  const a = Math.sin((la2-la1)*r/2)**2 +
+            Math.cos(la1*r)*Math.cos(la2*r)*Math.sin((lo2-lo1)*r/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+function etaFmt(sec) {
+  const m = Math.round(sec / 60);
+  return m < 60 ? `~${m} min` : `~${Math.floor(m/60)}h ${m%60}m`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// LEAFLET MAP
+// ═══════════════════════════════════════════════════════════
+let map, spotMark = null, coMarkers = new Map(), routeLayer = null;
+
+function initMap() {
+  map = L.map('map', { center: [38, -90], zoom: 4 });
+
+  // OpenStreetMap tiles
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution:
+      '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' +
+      ' | Routing: <a href="https://project-osrm.org">OSRM</a>' +
+      ' | Search: <a href="https://nominatim.org">Nominatim</a> + <a href="https://wiki.openstreetmap.org/wiki/Overpass_API">Overpass</a>',
+    maxZoom: 19,
+  }).addTo(map);
+}
+
+function iconFacility() {
+  return L.divIcon({ className: '',
+    html: `<div style="
+      background:#ef4444;width:36px;height:36px;
+      border-radius:50% 50% 50% 0;transform:rotate(-45deg);
+      border:3px solid #fff;box-shadow:0 3px 12px rgba(0,0,0,.5);
+      display:flex;align-items:center;justify-content:center;">
+      <span style="transform:rotate(45deg);font-size:16px">📍</span></div>`,
+    iconSize: [36,36], iconAnchor: [18,36], popupAnchor: [0,-38] });
+}
+
+function iconCompany(rank, isPartner) {
+  const bg = rank === 1 ? '#f59e0b' : isPartner ? '#10b981' : '#6b7280';
+  const tc = (rank === 1 || !isPartner) ? '#fff' : '#fff';
+  const sz = rank === 1 ? 34 : 28;
+  return L.divIcon({ className: '',
+    html: `<div style="
+      background:${bg};width:${sz}px;height:${sz}px;border-radius:50%;
+      border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5);
+      display:flex;align-items:center;justify-content:center;
+      color:${tc};font-size:12px;font-weight:800;">${rank}</div>`,
+    iconSize: [sz,sz], iconAnchor: [sz/2,sz], popupAnchor: [0,-(sz+2)] });
+}
+
+function placeSpotMarker(lat, lng, label) {
+  if (spotMark) map.removeLayer(spotMark);
+  spotMark = L.marker([lat, lng], { icon: iconFacility() })
+    .addTo(map)
+    .bindPopup(`<b style="color:#ef4444">📍 Parking Facility</b><br><small>${label}</small>`);
+}
+
+function placeCompanyMarkers(results, facility) {
+  coMarkers.forEach(m => map.removeLayer(m));
+  coMarkers.clear();
+
+  results.forEach((c, i) => {
+    if (!c.lat || !c.lng) return;
+    const isFastest = i === 0;
+    const tag = c.isPartner ? '✅ Partnered' : '🆕 New Towing';
+    const col = c.isPartner ? '#10b981' : '#f59e0b';
+
+    const popup = `<b>${c.name}</b><br>
+      ${isFastest ? '<span style="color:#fbbf24;font-weight:700">⭐ Fastest Arrival</span><br>' : ''}
+      <span style="color:${col};font-size:12px;font-weight:700">${tag}</span><br>
+      📏 <b>${c.distMi.toFixed(1)} mi</b> &nbsp; ⏱ <b>${c.etaTxt}</b>
+      ${c.phone ? `<br>📞 ${c.phone}` : ''}`;
+
+    const m = L.marker([c.lat, c.lng], { icon: iconCompany(i+1, c.isPartner) })
+      .addTo(map)
+      .bindTooltip(c.name, { permanent: false, direction: 'top', offset: [0, -14] })
+      .bindPopup(popup)
+      .on('click', () => selectCard(c.id));
+
+    coMarkers.set(c.id, m);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// ROUTE DRAWING
+// ═══════════════════════════════════════════════════════════
+let activeId = null;
+
+async function drawRoute(company) {
+  if (!spotCoords) return;
+  if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
+
+  const geo = await osrmRoute(company.lat, company.lng, spotCoords.lat, spotCoords.lng);
+
+  if (geo) {
+    routeLayer = L.geoJSON(geo, {
+      style: { color: '#3b82f6', weight: 4, opacity: .9 }
+    }).addTo(map);
+    map.fitBounds(routeLayer.getBounds(), { padding: [60, 60] });
+  } else {
+    // Straight-line fallback
+    routeLayer = L.polyline(
+      [[company.lat, company.lng], [spotCoords.lat, spotCoords.lng]],
+      { color: '#3b82f6', weight: 3, dashArray: '8,6', opacity: .8 }
+    ).addTo(map);
+    map.fitBounds(routeLayer.getBounds(), { padding: [80, 80] });
+  }
+
+  // Update route strip
+  document.getElementById('routeName').textContent = company.name;
+  document.getElementById('routeMi').textContent   = company.distMi.toFixed(1) + ' mi';
+  document.getElementById('routeEta').textContent  = company.etaTxt;
+  document.getElementById('routeStrip').classList.add('on');
+}
+
+function clearRoute() {
+  if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
+  document.getElementById('routeStrip').classList.remove('on');
+  document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+  activeId = null;
+}
+
+// ═══════════════════════════════════════════════════════════
+// CARD SELECTION — highlights card + marker + draws route
+// ═══════════════════════════════════════════════════════════
+async function selectCard(id) {
+  document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
+
+  const company = lastResults.find(c => c.id === id);
+  if (!company) return;
+
+  const card = document.getElementById(`card-${id}`);
+  if (card) {
+    card.classList.add('active');
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  // Focus map marker
+  const marker = coMarkers.get(id);
+  if (marker) { marker.openPopup(); }
+
+  // Toggle route: click same card twice → clear
+  if (activeId === id) { clearRoute(); return; }
+  activeId = id;
+
+  await drawRoute(company);
+}
+
+// ═══════════════════════════════════════════════════════════
+// MAIN SEARCH
+// ═══════════════════════════════════════════════════════════
+let spotCoords = null, lastResults = [];
+
+async function doSearch() {
+  const addr = document.getElementById('addrIn').value.trim();
+  if (!addr) { toast('Enter a parking facility address', 'err'); return; }
+
+  clearRoute();
+  setLoader(true, 'Geocoding address…', 'Nominatim · OpenStreetMap');
+  document.getElementById('findBtn').disabled = true;
+  document.getElementById('mapKey').classList.remove('on');
+
+  // ── 1. Geocode with Nominatim ────────────────────────────
+  const geo = await geocode(addr);
+  if (!geo) {
+    setLoader(false);
+    document.getElementById('findBtn').disabled = false;
+    document.getElementById('results').innerHTML = `
+      <div class="empty"><div class="empty-ico">📍</div>
+        <p><b style="color:var(--amber)">Address not found.</b><br>
+        Include city &amp; state — e.g.:<br>
+        <i>123 Main St, Chicago, IL</i></p>
+      </div>`;
+    toast('Address not recognized', 'err');
+    return;
+  }
+  spotCoords = geo;
+  placeSpotMarker(geo.lat, geo.lng, addr);
+
+  const radiusM = R * 1609.34;
+
+  // ── 2. Search ALL towing companies — two sources run in parallel ──
+  //    • Overpass API  → OSM tag-based search (amenity=vehicle_rescue, service~tow, name~tow)
+  //    • Nominatim     → text search "towing" + "tow truck" within bounding box
+  //    Both results are merged so NO company is ever hidden.
+  setLoader(true,
+    `Searching for all towing companies within ${R} mi…`,
+    'Overpass API + Nominatim Places Search');
+
+  const [osmResults, nomResults] = await Promise.all([
+    searchOverpass(geo, radiusM),
+    searchNominatim(geo, R),
+  ]);
+
+  // Combine OSM sources, deduplicate by name/location
+  const allExternal = dedupResults([...nomResults, ...osmResults]);
+
+  // ── 3. Master-list companies within radius ───────────────
+  // ── 3b. Lazy-geocode any master list partners that still lack coordinates ──
+  const needsGeo = db.filter(c => c.status !== 'Inactive' && !c.lat && !c.geoAttempted);
+  if (needsGeo.length) {
+    setLoader(true, `Geocoding ${needsGeo.length} new partner(s)…`, 'Nominatim');
+    console.log(`[TowLocator] Lazy-geocoding ${needsGeo.length} unresolved partner(s)…`);
+    for (const c of needsGeo) {
+      c.geoAttempted = true;
+      const g = await geocode(c.address);
+      if (g) { c.lat = g.lat; c.lng = g.lng; console.log(`[TowLocator] ✅ ${c.name}`, g); }
+      else    { console.warn(`[TowLocator] ⚠️ Could not geocode "${c.name}" — ${c.address}`); }
+      await new Promise(r => setTimeout(r, 380));
+    }
+    save();
+  }
+
+  const masterInRange = db
+    .filter(c => c.status !== 'Inactive' && c.lat && c.lng)
+    .filter(c => haversine(geo.lat, geo.lng, c.lat, c.lng) <= R);
+
+  // ── Diagnostics: log exactly what's in/out and why ────────
+  const allActive   = db.filter(c => c.status !== 'Inactive');
+  const noCoords    = allActive.filter(c => !c.lat || !c.lng);
+  const failedGeo   = allActive.filter(c => c.geoAttempted && !c.lat);
+  const tooFar      = allActive.filter(c => c.lat && c.lng && haversine(geo.lat, geo.lng, c.lat, c.lng) > R);
+
+  console.group('[TowLocator] ── Search Diagnostics ──');
+  console.log(`Total in DB: ${db.length} | Active: ${allActive.length} | Geocoded: ${allActive.filter(c=>c.lat&&c.lng).length}`);
+  console.log(`In ${R}mi radius: ${masterInRange.length}`, masterInRange.map(c=>c.name));
+  if (failedGeo.length)
+    console.error(`Geocoding FAILED (bad address?): ${failedGeo.length}`, failedGeo.map(c=>`${c.name} → ${c.address}`));
+  if (noCoords.filter(c=>!c.geoAttempted).length)
+    console.warn(`Not yet geocoded: ${noCoords.filter(c=>!c.geoAttempted).length}`, noCoords.filter(c=>!c.geoAttempted).map(c=>c.name));
+  if (tooFar.length)
+    console.log(`Outside ${R}mi radius: ${tooFar.length}`, tooFar.map(c=>`${c.name} (${haversine(geo.lat,geo.lng,c.lat,c.lng).toFixed(1)}mi)`));
+  console.groupEnd();
+
+  // Store diagnostics for results panel
+  window._lastSearchDiag = { masterInRange, failedGeo, noCoords: noCoords.filter(c=>!c.geoAttempted), tooFar, radius: R };
+
+  // ── 4. Merge all three sources + tag each company ────────
+  //    Partnered  = matched in master CSV list
+  //    New Towing = found via OSM/Nominatim, NOT in master list
+  const merged = mergeResults(allExternal, masterInRange);
+
+  if (!merged.length) {
+    setLoader(false);
+    document.getElementById('findBtn').disabled = false;
+    const _addr = document.getElementById('addrIn').value.trim();
+    const _gUrl  = `https://www.google.com/search?q=${encodeURIComponent('towing companies near ' + _addr)}`;
+    const _gmUrl = `https://www.google.com/maps/search/towing+company+near+${encodeURIComponent(_addr)}`;
+    document.getElementById('results').innerHTML = `
+      <div class="galt-bar">
+        <div class="galt-title">🔍 Search Google for Towing Companies</div>
+        <div class="galt-btns">
+          <a class="galt-btn gsearch" href="${_gUrl}" target="_blank">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+            Search Google — Towing near this facility
+          </a>
+          <a class="galt-btn gsearch" href="${_gmUrl}" target="_blank" style="background:#0f9d58">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+            Google Maps — Towing nearby
+          </a>
+          <button class="galt-btn qadd" onclick="openQA('towing')">➕ Quick Add Company</button>
+        </div>
+      </div>
+      <div class="empty"><div class="empty-ico">🔍</div>
+        <p>No towing companies found within <b>${R} miles</b>.<br>
+        Try increasing the search radius or use Google to find alternatives above.</p>
+      </div>`;
+    toast(`No results within ${R} mi`, 'inf');
+    map.setView([geo.lat, geo.lng], 13);
+    return;
+  }
+
+  // ── 5. OSRM Table — batch driving distances & ETAs ───────
+  setLoader(true,
+    `Calculating driving routes for ${merged.length} companies…`,
+    'OSRM Routing Engine');
+  const distData = await osrmTable(geo, merged);
+
+  // ── 6. Apply distances, filter, sort by ETA ──────────────
+  lastResults = merged.slice(0, 30)
+    .map((c, i) => ({
+      ...c,
+      distMi: distData[i]?.distMi ?? haversine(geo.lat, geo.lng, c.lat, c.lng),
+      etaTxt: distData[i]?.etaTxt ?? etaFmt(haversine(geo.lat, geo.lng, c.lat, c.lng) / 28 * 3600),
+      etaSec: distData[i]?.etaSec ?? 99999,
+    }))
+    .filter(c => c.distMi <= R * 1.25)   // 25% buffer for road vs straight-line
+    .sort((a, b) => a.etaSec - b.etaSec || a.distMi - b.distMi);
+
+  // ── 7. Render ─────────────────────────────────────────────
+  placeCompanyMarkers(lastResults, geo);
+  renderResults(lastResults);
+
+  // Fit map to show facility + top companies
+  const bounds = L.latLngBounds([[geo.lat, geo.lng]]);
+  lastResults.slice(0, 8).forEach(c => { if (c.lat && c.lng) bounds.extend([c.lat, c.lng]); });
+  map.fitBounds(bounds, { padding: [60, 50] });
+  document.getElementById('mapKey').classList.add('on');
+
+  setLoader(false);
+  document.getElementById('findBtn').disabled = false;
+
+  // Auto-draw route to fastest company
+  if (lastResults[0]) selectCard(lastResults[0].id);
+
+  // Toast summary
+  const pt   = lastResults.filter(r => r.isPartner).length;
+  const nt   = lastResults.length - pt;
+  const nOsm = lastResults.filter(r => r.fromOSM && !r.isPartner).length;
+  toast(`${lastResults.length} companies found · ${pt} partnered · ${nt} new (${nOsm} from OSM)`, 'ok');
+}
+
+// ═══════════════════════════════════════════════════════════
+// RENDER RESULTS
+// ═══════════════════════════════════════════════════════════
+function renderResults(results) {
+  const el = document.getElementById('results');
+  if (!results.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-ico">🔍</div><p>No companies found.</p></div>`;
+    return;
+  }
+
+  const pt   = results.filter(r => r.isPartner).length;
+  const pm   = results.filter(r => r.isPossible).length;
+  const nt   = results.length - pt - pm;
+  const nNom = results.filter(r => r.fromNom && !r.isPartner && !r.isPossible).length;
+  const nOvp = results.filter(r => r.fromOSM && !r.fromNom && !r.isPartner && !r.isPossible).length;
+
+  // Diagnostic banner for excluded master list partners
+  const diag = window._lastSearchDiag || {};
+  let diagHtml = '';
+  if (diag.failedGeo?.length) {
+    diagHtml += `<div class="diag-banner">⚠️ ${diag.failedGeo.length} partner(s) excluded — geocoding failed (bad address):<br>
+      <b>${diag.failedGeo.map(c=>c.name).join(', ')}</b><br>
+      <a onclick="switchTab('Admin', document.querySelectorAll('.tab')[1])">Go to Admin</a> → 📍 button to re-geocode after fixing the address.</div>`;
+  }
+  if (diag.noCoords?.length) {
+    diagHtml += `<div class="diag-banner">⏳ ${diag.noCoords.length} partner(s) pending geocoding — click
+      <a onclick="switchTab('Admin', document.querySelectorAll('.tab')[1])">Admin → 📍 Geocode Pending</a> to make them searchable.</div>`;
+  }
+
+  // Google alternatives bar for towing
+  const towFacAddr = document.getElementById('addrIn').value.trim();
+  const gTowUrl  = `https://www.google.com/search?q=${encodeURIComponent('towing companies near ' + towFacAddr)}`;
+  const gTowMaps = `https://www.google.com/maps/search/towing+company+near+${encodeURIComponent(towFacAddr)}`;
+
+  let html = diagHtml + `
+    <div class="galt-bar">
+      <div class="galt-title">🔍 Search Google for Additional Companies</div>
+      <div class="galt-btns">
+        <a class="galt-btn gsearch" href="${gTowUrl}" target="_blank">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+          Search Google — Towing near this facility
+        </a>
+        <a class="galt-btn gsearch" href="${gTowMaps}" target="_blank" style="background:#0f9d58">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+          Google Maps — Towing nearby
+        </a>
+        <button class="galt-btn qadd" onclick="openQA('towing')">
+          ➕ Quick Add Company
+        </button>
+      </div>
+    </div>
+    <div class="res-summary">
+      <span>${results.length} companies · ${R} mi radius · click card to draw route</span>
+    </div>
+    <div class="res-counts">
+      <span class="badge pt">✅ ${pt} Partnered</span>
+      ${pm ? `<span class="badge pm">⚠️ ${pm} Possible</span>` : ''}
+      <span class="badge nt">🆕 ${nt} New Towing</span>
+      <span class="badge sg">⭐ Fastest: ${results[0].etaTxt}</span>
+    </div>
+    <div style="font-size:11px;color:var(--text3);padding:0 2px 8px">
+      Sources: ${results.filter(r=>!r.fromOSM).length} CSV · ${nNom} Nominatim · ${nOvp} Overpass
+    </div>`;
+
+  results.forEach((c, i) => {
+    const isFastest   = i === 0;
+    const isPartnered = c.isPartner;
+    const isPossible  = c.isPossible;
+
+    const rnBg = i === 0 ? '#f59e0b' : isPartnered ? '#10b981' : isPossible ? '#92400e' : '#4b5563';
+    const src  = c.fromNom ? 'Nominatim' : c.fromOSM ? 'Overpass' : 'Master List';
+    const srcLabel = `<span style="font-size:10px;color:var(--text3);margin-left:4px">· ${src}</span>`;
+
+    const mainBadge = isPartnered
+      ? `<span class="badge pt">✅ Partnered</span>`
+      : isPossible
+        ? `<span class="badge pm">⚠️ Possible Match</span>`
+        : `<span class="badge nt">🆕 New Towing</span>`;
+
+    let matchLine = '';
+    if ((isPartnered || isPossible) && c.matchedName && c.matchReason) {
+      const barW  = Math.round((c.matchScore / 100) * 60);
+      const color = isPossible ? 'var(--gold)' : 'var(--green)';
+      matchLine = `
+        <div class="match-line${isPossible ? ' possible' : ''}">
+          🔗 Matched to: <b>${c.matchedName}</b><br>
+          Match confidence: <b style="color:${color}">${c.matchScore}%</b>
+          <span class="conf-bar${isPossible ? ' possible' : ''}" style="width:${barW}px"></span>
+          <span style="color:var(--text3)"> · ${c.matchReason}</span>
+        </div>`;
+    }
+
+    html += `
+    <div class="card${isFastest ? ' fastest' : ''}" id="card-${c.id}" onclick="selectCard('${c.id}')">
+      <div class="card-head">
+        <div class="card-name">
+          <span class="rank" style="background:${rnBg};color:#fff">${i+1}</span>
+          <span style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+            ${c.name}${srcLabel}
+          </span>
+        </div>
+        <div class="badge-row">
+          ${isFastest ? '<span class="badge sg">⭐ Suggested</span>' : ''}
+          ${mainBadge}
+        </div>
+      </div>
+
+      <div class="dist-bar">
+        <div class="dc">
+          <div class="dc-lbl">
+            Distance${isFastest ? ' <span class="ftag">⚡ Fastest</span>' : ''}
+          </div>
+          <div class="dc-val${isFastest ? ' hi' : ''}">
+            ${c.distMi.toFixed(1)}<span class="u"> mi</span>
+          </div>
+        </div>
+        <div class="dc">
+          <div class="dc-lbl">Est. Arrival Time</div>
+          <div class="dc-val">${c.etaTxt}</div>
+        </div>
+      </div>
+
+      ${matchLine}
+
+      <div class="card-info">
+        ${c.address ? `<div class="ci">🏠 <span>${c.address}</span></div>` : ''}
+        ${c.phone   ? `<div class="ci">📞 <span>${c.phone}</span></div>` : ''}
+        ${c.email   ? `<div class="ci">✉️ <span>${c.email}</span></div>` : ''}
+        ${c.contact ? `<div class="ci">👤 <span>${c.contact}</span></div>` : ''}
+      </div>
+
+      <div class="card-acts">
+        <a class="ca primary" onclick="event.stopPropagation();selectCard('${c.id}')">
+          📡 Draw Route
+        </a>
+        <a class="ca gmaps"
+           href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.name + ' ' + (c.address||''))}"
+           target="_blank" onclick="event.stopPropagation()" title="View on Google Maps">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="white" style="margin-right:3px"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+          Maps
+        </a>
+        <a class="ca ghost"
+           href="https://www.google.com/search?q=${encodeURIComponent(c.name + ' ' + (c.address||''))}"
+           target="_blank" onclick="event.stopPropagation()" title="Search this company on Google"
+           style="font-size:11px">🔍 Google</a>
+        <button class="ca ghost" style="font-size:11px"
+                onclick="event.stopPropagation();openQA('towing',{name:'${c.name}',phone:'${c.phone||''}',address:'${c.address||''}',website:''})"
+                title="Add to master list">➕</button>
+        <a class="ca ghost"
+           href="https://www.openstreetmap.org/directions?from=${c.lat}%2C${c.lng}&to=${spotCoords?.lat}%2C${spotCoords?.lng}&route=car"
+           target="_blank" onclick="event.stopPropagation()">🧭 Nav</a>
+        ${c.phone
+          ? `<a class="ca ghost green-ghost"
+               href="tel:${c.phone.replace(/\D/g,'')}"
+               onclick="event.stopPropagation()">📞</a>` : ''}
+      </div>
+    </div>`;
+  });
+
+  el.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════
+// CLEAR / RESET
+// ═══════════════════════════════════════════════════════════
+function clearSearch() {
+  document.getElementById('addrIn').value = '';
+  document.getElementById('results').innerHTML = `
+    <div class="empty">
+      <div class="empty-ico">🗺️</div>
+      <p>Enter a facility address to search approved partners and nearby towing companies via OpenStreetMap.</p>
+      <div class="legend-grid">
+        <div class="legend-row"><span class="badge sg">⭐ Suggested</span><span style="color:var(--text2)">Fastest estimated arrival</span></div>
+        <div class="legend-row"><span class="badge pt">✅ Partnered</span><span style="color:var(--text2)">In your approved master list</span></div>
+        <div class="legend-row"><span class="badge nt">🆕 New Towing</span><span style="color:var(--text2)">Found on OpenStreetMap</span></div>
+      </div>
+    </div>`;
+  clearRoute();
+  coMarkers.forEach(m => map.removeLayer(m));
+  coMarkers.clear();
+  if (spotMark) { map.removeLayer(spotMark); spotMark = null; }
+  document.getElementById('mapKey').classList.remove('on');
+  lastResults = [];
+  spotCoords  = null;
+  map.setView([38, -90], 4);
+}
+
+// ═══════════════════════════════════════════════════════════
+// ADMIN CRUD
+// ═══════════════════════════════════════════════════════════
+let editId = null;
+
+function renderTable() {
+  const q    = (document.getElementById('tblQ')?.value || '').toLowerCase();
+  // Search across all fields: name, address, phone, email, contact, market, ZIP
+  const rows = q
+    ? db.filter(c => {
+        const qn = q.replace(/\D/g,'');  // digits-only for phone/ZIP search
+        return c.name.toLowerCase().includes(q)
+          || (c.address  || '').toLowerCase().includes(q)
+          || (c.market   || '').toLowerCase().includes(q)
+          || (c.phone    || '').replace(/\D/g,'').includes(qn && qn.length>=3 ? qn : '____')
+          || (c.email    || '').toLowerCase().includes(q)
+          || (c.contact  || '').toLowerCase().includes(q);
+      })
+    : db;
+
+  document.getElementById('coCount').textContent = db.length;
+  const tbody = document.getElementById('tblBody');
+
+  tbody.innerHTML = rows.length
+    ? rows.map(c => `
+      <tr>
+        <td>
+          <div style="font-weight:600;display:flex;align-items:center;gap:6px">
+            ${c.name}
+            ${c.lat && c.lng
+              ? `<span title="Geocoded — will appear in searches" style="color:var(--green);font-size:11px">✅</span>`
+              : c.geoAttempted
+                ? `<span title="Geocoding failed — check address" style="color:var(--red);font-size:11px">⚠️ Bad address</span>`
+                : `<span title="Not yet geocoded — won't appear in searches" style="color:var(--amber);font-size:11px">⏳ Pending</span>`}
+          </div>
+          <div class="td-sub">${c.address}</div>
+          ${c.email ? `<div class="td-sub">✉️ ${c.email}</div>` : ''}
+        </td>
+        <td>${c.market || '—'}</td>
+        <td><span class="badge ${c.status === 'Active' ? 'pt' : 'nt'}">
+          ${c.status === 'Active' ? '✅ Active' : '❌ Inactive'}
+        </span></td>
+        <td>${c.phone   || '—'}</td>
+        <td>${c.contact || '—'}</td>
+        <td>
+          <button class="btn gray sm" onclick="editPartner('${c.id}')">✏️</button>
+          ${!c.lat ? `<button class="btn gray sm" onclick="geocodePartner('${c.id}')" style="margin-left:4px" title="Geocode this address">📍</button>` : ''}
+          <button class="btn red  sm" onclick="deletePartner('${c.id}')" style="margin-left:4px">🗑</button>
+        </td>
+      </tr>`).join('')
+    : `<tr><td colspan="6" style="text-align:center;color:var(--text2);padding:28px">No partners found.</td></tr>`;
+}
+
+async function savePartner() {
+  const name = document.getElementById('fName').value.trim();
+  const addr = document.getElementById('fAddr').value.trim();
+  if (!name || !addr) { toast('Name and Address are required', 'err'); return; }
+
+  const data = {
+    name, address: addr,
+    phone:   document.getElementById('fPhone').value.trim(),
+    contact: document.getElementById('fContact').value.trim(),
+    email:   document.getElementById('fEmail').value.trim(),
+    market:  document.getElementById('fMkt').value.trim(),
+    status:  document.getElementById('fStatus').value,
+    lat: null, lng: null, geoAttempted: false,
+  };
+
+  let targetId;
+  if (editId) {
+    const i = db.findIndex(c => c.id === editId);
+    if (i >= 0) {
+      const prev = db[i];
+      // Preserve coordinates if address unchanged
+      if (prev.address === addr) { data.lat = prev.lat; data.lng = prev.lng; data.geoAttempted = prev.geoAttempted; }
+      db[i] = { ...prev, ...data, id: editId };
+    }
+    targetId = editId;
+    toast('Partner updated', 'ok');
+  } else {
+    targetId = newId();
+    db.push({ id: targetId, ...data });
+    toast('Partner saved — geocoding address…', 'inf');
+  }
+
+  save(); renderTable(); resetForm();
+
+  // Auto-geocode if no coordinates yet
+  const entry = db.find(c => c.id === targetId);
+  if (entry && !entry.lat) {
+    await geocodePartner(targetId);
+  }
+}
+
+// Geocode a single partner by ID and update localStorage
+async function geocodePartner(id) {
+  const c = db.find(x => x.id === id);
+  if (!c) return;
+
+  console.log(`[TowLocator] Geocoding "${c.name}" at: ${c.address}`);
+  c.geoAttempted = true;
+
+  const g = await geocode(c.address);
+  if (g) {
+    c.lat = g.lat; c.lng = g.lng;
+    save(); renderTable();
+    toast(`✅ "${c.name}" is ready — will appear in searches immediately`, 'ok');
+    console.log(`[TowLocator] ✅ Geocoded "${c.name}":`, g);
+  } else {
+    save(); renderTable();
+    toast(`⚠️ Could not locate "${c.name}" — check the address format (e.g. 123 Main St, Chicago, IL 60601)`, 'err');
+    console.error(`[TowLocator] ❌ Geocoding failed for "${c.name}" — address: ${c.address}`);
+  }
+}
+
+// Geocode all partners that are missing coordinates
+async function geocodeAllPending() {
+  const pending = db.filter(c => c.status !== 'Inactive' && !c.lat && !c.geoAttempted);
+  if (!pending.length) { toast('All partners already geocoded', 'inf'); return; }
+
+  toast(`Geocoding ${pending.length} partner(s)…`, 'inf');
+  let success = 0, fail = 0;
+  for (const c of pending) {
+    c.geoAttempted = true;
+    const g = await geocode(c.address);
+    if (g) { c.lat = g.lat; c.lng = g.lng; success++; }
+    else { fail++; console.error(`[TowLocator] ❌ Failed: "${c.name}" — ${c.address}`); }
+    await new Promise(r => setTimeout(r, 400)); // Nominatim rate limit
+  }
+  save(); renderTable();
+  toast(`Geocoded: ${success} success, ${fail} failed`, success > 0 ? 'ok' : 'err');
+}
+
+function editPartner(id) {
+  const c = db.find(x => x.id === id);
+  if (!c) return;
+  editId = id;
+  document.getElementById('fName').value    = c.name;
+  document.getElementById('fAddr').value    = c.address;
+  document.getElementById('fPhone').value   = c.phone   || '';
+  document.getElementById('fContact').value = c.contact || '';
+  document.getElementById('fEmail').value   = c.email   || '';
+  document.getElementById('fMkt').value     = c.market  || '';
+  document.getElementById('fStatus').value  = c.status  || 'Active';
+  document.getElementById('formTitle').textContent = '✏️ Edit Partner';
+  document.getElementById('fName').scrollIntoView({ behavior: 'smooth' });
+  document.getElementById('fName').focus();
+}
+
+function deletePartner(id) {
+  if (!confirm('Remove this partner from the master list?')) return;
+  db = db.filter(c => c.id !== id);
+  save(); renderTable();
+  toast('Partner removed', 'ok');
+}
+
+function clearAll() {
+  if (!confirm('Clear ALL partners? This cannot be undone.')) return;
+  db = []; save(); renderTable();
+  toast('All partners cleared', 'err');
+}
+
+function resetForm() {
+  editId = null;
+  ['fName','fAddr','fPhone','fContact','fEmail','fMkt'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('fStatus').value = 'Active';
+  document.getElementById('formTitle').textContent = '➕ Add Partner';
+  updateAddrGeoStatus();
+}
+
+function updateAddrGeoStatus() {
+  const el = document.getElementById('addrGeoStatus');
+  if (!el) return;
+  const addr = document.getElementById('fAddr')?.value.trim();
+  if (!addr) { el.textContent = ''; return; }
+  // If editing an existing record, show its geo status
+  if (editId) {
+    const c = db.find(x => x.id === editId);
+    if (c) {
+      if (c.lat && c.lng && c.address === addr)
+        el.textContent = '✅ Geocoded';
+      else if (c.geoAttempted && !c.lat)
+        el.textContent = '⚠️ Bad address — fix and save to retry';
+      else
+        el.textContent = '⏳ Will geocode on save';
+      return;
+    }
+  }
+  el.textContent = addr.length > 10 ? '⏳ Will geocode on save' : '';
+}
+
+// ═══════════════════════════════════════════════════════════
+// CSV IMPORT / EXPORT
+// ═══════════════════════════════════════════════════════════
+function importCSV(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const lines = e.target.result.split('\n').filter(l => l.trim());
+    if (lines.length < 2) { toast('CSV has no data rows', 'err'); return; }
+    const hdrs = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
+    const get  = (row, keys) => {
+      for (const k of keys) {
+        const i = hdrs.indexOf(k);
+        if (i >= 0) return (row[i] || '').trim().replace(/^"|"$/g, '');
+      }
+      return '';
+    };
+    let added = 0, skipped = 0;
+    lines.slice(1).forEach(line => {
+      const row  = parseCSVLine(line);
+      const name = get(row, ['name','company name','company','towing company']);
+      const addr = get(row, ['address','addr']);
+      if (!name || !addr) { skipped++; return; }
+      db.push({
+        id: newId(), name, address: addr,
+        phone:   get(row, ['phone','phone number']),
+        contact: get(row, ['contact','contact person']),
+        email:   get(row, ['email','email address']),
+        market:  get(row, ['market','state','city']),
+        status:  get(row, ['status']) || 'Active',
+        lat: null, lng: null, geoAttempted: false,
+      });
+      added++;
+    });
+    save(); renderTable();
+    toast(`${added} partners imported${skipped ? ` (${skipped} skipped)` : ''} — geocoding addresses…`, added ? 'ok' : 'err');
+    input.value = '';
+    if (added) setTimeout(() => geocodeAllPending(), 500);
+  };
+  reader.readAsText(file);
+}
+
+function parseCSVLine(line) {
+  const r = []; let cur = '', q = false;
+  for (const ch of line) {
+    if (ch === '"') { q = !q; continue; }
+    if (ch === ',' && !q) { r.push(cur); cur = ''; continue; }
+    cur += ch;
+  }
+  r.push(cur);
+  return r;
+}
+
+function exportTemplate() {
+  const csv = [
+    'Name,Address,Phone,Contact,Email,Market,Status',
+    '"Example Towing","123 Main St, Chicago, IL 60601","(312) 555-0000","John Smith","dispatch@ex.com","Chicago, IL","Active"',
+  ].join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv,' + encodeURIComponent(csv);
+  a.download = 'towing_master_template.csv';
+  a.click();
+}
+
+// ═══════════════════════════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════════════════════════
+function switchTab(name, btn) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+  document.getElementById('v' + name).classList.add('on');
+  btn.classList.add('on');
+  if (name === 'Admin')  renderTable();
+  if (name === 'Search') setTimeout(() => map.invalidateSize(), 60);
+  if (name === 'Snow') setTimeout(() => { initSnowMap(); setTimeout(() => mapSnow?.invalidateSize(), 120); }, 60);
+}
+
+function setLoader(show, msg = '', sub = '') {
+  document.getElementById('loader').classList.toggle('dn', !show);
+  if (show) {
+    document.getElementById('loaderMsg').textContent = msg;
+    document.getElementById('loaderSub').textContent = sub;
+  }
+}
+
+function toast(msg, type = 'inf') {
+    const c = document.getElementById('toasts');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3600);
+}
+
+
+// ════════════════════════════════════════════════════════════════
+// SNOW REMOVAL TAB
+// ════════════════════════════════════════════════════════════════
+
+// ── State ─────────────────────────────────────────────────────
+let mapSnow = null, snowSpotMark = null, snowCoMarkers = new Map();
+let snowCoords = null, snowResults = [], snowR = 5;
+const SNOW_VENDORS_KEY = 'snowVendors_v2';
+const SNOW_TRACKER_KEY = 'snowTracker_v2';
+
+function setSnowR(r, btn) {
+  snowR = r;
+  document.querySelectorAll('.rbtn.sno').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+}
+
+// ── Map ────────────────────────────────────────────────────────
+function initSnowMap() {
+  if (mapSnow) return;
+  mapSnow = L.map('mapSnow', { center: [38, -90], zoom: 4 });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 19,
+  }).addTo(mapSnow);
+}
+
+function snowSpotIcon() {
+  return L.divIcon({ className: '',
+    html: `<div style="background:#ef4444;width:34px;height:34px;border-radius:50% 50% 50% 0;
+           transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.5);
+           display:flex;align-items:center;justify-content:center">
+           <span style="transform:rotate(45deg);font-size:15px">📍</span></div>`,
+    iconSize: [34,34], iconAnchor: [17,34], popupAnchor: [0,-36] });
+}
+
+function snowCoIcon(rank, isLandscaping) {
+  const bg = isLandscaping ? '#f59e0b' : '#60a5fa';
+  const sz = rank === 1 ? 32 : 28;
+  return L.divIcon({ className: '',
+    html: `<div style="background:${bg};width:${sz}px;height:${sz}px;border-radius:50%;
+           border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5);
+           display:flex;align-items:center;justify-content:center;
+           color:#fff;font-size:12px;font-weight:800">${rank}</div>`,
+    iconSize: [sz,sz], iconAnchor: [sz/2,sz], popupAnchor: [0,-(sz+2)] });
+}
+
+function placeSnowMarkers(results, origin) {
+  snowCoMarkers.forEach(m => mapSnow.removeLayer(m));
+  snowCoMarkers.clear();
+  if (snowSpotMark) mapSnow.removeLayer(snowSpotMark);
+  snowSpotMark = L.marker([origin.lat, origin.lng], { icon: snowSpotIcon() })
+    .addTo(mapSnow)
+    .bindPopup('<b style="color:#ef4444">📍 Facility</b>');
+  results.forEach((c, i) => {
+    if (!c.lat || !c.lng) return;
+    const pop = `<b>${c.name}</b><br>
+      <span style="color:${c.isLandscaping?'#f59e0b':'#60a5fa'};font-size:12px;font-weight:700">
+        ${c.isLandscaping ? '🌿 Landscaping/Maint.' : '❄️ Snow Removal'}
+      </span><br>
+      📏 ${c.distMi.toFixed(1)} mi · ⏱ ${c.etaTxt}
+      ${c.phone ? `<br>📞 ${c.phone}` : ''}`;
+    const m = L.marker([c.lat, c.lng], { icon: snowCoIcon(i+1, c.isLandscaping) })
+      .addTo(mapSnow).bindTooltip(c.name, { direction:'top', offset:[0,-14] }).bindPopup(pop);
+    snowCoMarkers.set(c.id, m);
+  });
+}
+
+// ── Overpass search ────────────────────────────────────────────
+async function searchSnowOverpass(origin, radiusM, fallback = false) {
+  const { lat, lng } = origin;
+  const rm = Math.round(radiusM);
+  const nameFilter = fallback
+    ? `node["name"~"landscap|lawn|property|grounds|outdoor",i](around:${rm},${lat},${lng});
+       way["name"~"landscap|lawn|property|grounds",i](around:${rm},${lat},${lng});`
+    : `node["name"~"snow|plowing|winter service",i](around:${rm},${lat},${lng});
+       way["name"~"snow|plowing|winter",i](around:${rm},${lat},${lng});
+       node["service"~"snow|winter",i](around:${rm},${lat},${lng});`;
+  const q = `[out:json][timeout:30];
+(
+${nameFilter}
+);
+out center tags;`;
+  try {
+    const res = await fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `data=${encodeURIComponent(q)}`,
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const seen = new Set();
+    return (data.elements || []).filter(el => {
+      const n = el.tags?.name;
+      if (!n || seen.has(n.toLowerCase())) return false;
+      seen.add(n.toLowerCase()); return true;
+    }).map(el => ({
+      id: `osnow-${el.id}`,
+      name: el.tags.name,
+      lat: el.lat ?? el.center?.lat,
+      lng: el.lon ?? el.center?.lon,
+      phone:   el.tags.phone || el.tags['contact:phone'] || el.tags['phone:mobile']
+               || el.tags['phone:main'] || el.tags['telephone'] || '',
+      email:   el.tags.email || el.tags['contact:email'] || el.tags['email:main'] || '',
+      website: el.tags.website || el.tags['contact:website'] || el.tags.url
+               || el.tags['website:en'] || '',
+      address: osmAddr(el.tags),
+      rating: null, reviewCount: null,
+      emergency24h: el.tags.opening_hours === '24/7' ? 'Yes' : 'Unknown',
+      commercialLot: 'Unknown', saltMgmt: 'Unknown',
+      isLandscaping: fallback, fromOSM: true,
+    })).filter(c => c.lat && c.lng);
+  } catch(e) { console.warn('Snow Overpass:', e); return []; }
+}
+
+// ── Nominatim snow search ──────────────────────────────────────
+async function searchSnowNominatim(origin, radiusMiles, terms) {
+  const latD = radiusMiles / 69.0;
+  const lngD = latD / Math.cos(origin.lat * Math.PI / 180);
+  const bbox = `${origin.lng-lngD},${origin.lat+latD},${origin.lng+lngD},${origin.lat-latD}`;
+  const raw = [];
+  for (const term of terms) {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(term)}&viewbox=${bbox}&bounded=1&format=json&limit=20&extratags=1&namedetails=0`,
+        { headers: { 'User-Agent': 'TowLocatorPro/1.0', 'Accept-Language': 'en-US' } }
+      );
+      if (!res.ok) continue;
+      const data = await res.json();
+      for (const d of data) {
+        if (!d.lat || !d.lon) continue;
+        const name = d.name || d.display_name.split(',')[0].trim();
+        if (!name) continue;
+        const ex = d.extratags || {};
+        raw.push({
+          id: `nomsnow-${d.place_id}`, name,
+          lat: +d.lat, lng: +d.lon,
+          phone:   ex.phone || ex['contact:phone'] || ex['phone:mobile'] || '',
+          email:   ex.email || ex['contact:email'] || '',
+          website: ex.website || ex['contact:website'] || ex.url || '',
+          address: nomAddr(d.display_name),
+          rating: null, reviewCount: null,
+          emergency24h: ex.opening_hours === '24/7' ? 'Yes' : 'Unknown',
+          commercialLot: 'Unknown', saltMgmt: 'Unknown',
+          isLandscaping: ['landscaping','lawn care','property maintenance'].includes(term),
+          fromOSM: true, fromNom: true,
+        });
+      }
+    } catch(e) { console.warn(`Snow Nominatim "${term}":`, e); }
+    await new Promise(r => setTimeout(r, 350));
+  }
+  return raw;
+}
+
+// ── Deduplicate (reuse dedupResults logic) ─────────────────────
+function dedupSnow(arr) {
+  const out = [];
+  for (const c of arr) {
+    const normC = c.name.toLowerCase().replace(/[^\w]/g, '');
+    const dup = out.some(o => {
+      const normO = o.name.toLowerCase().replace(/[^\w]/g, '');
+      if (normC.slice(0,12) === normO.slice(0,12) && normC.length > 3) return true;
+      if (c.lat && c.lng && o.lat && o.lng)
+        if (haversineRaw(c.lat,c.lng,o.lat,o.lng) < 0.05) return true;
+      return false;
+    });
+    if (!dup) out.push(c);
+  }
+  return out;
+}
+
+// ── Main snow search ───────────────────────────────────────────
+async function doSnowSearch() {
+  const addr = document.getElementById('snowAddrIn').value.trim();
+  if (!addr) { toast('Enter a facility address', 'err'); return; }
+
+  setSnowLoader(true, 'Geocoding address…', 'Nominatim');
+  document.getElementById('snowFindBtn').disabled = true;
+  document.getElementById('snowMapKey').classList.remove('on');
+  switchSnowTab('results', document.querySelector('.stab'));
+
+  const geo = await geocode(addr);
+  if (!geo) {
+    setSnowLoader(false);
+    document.getElementById('snowFindBtn').disabled = false;
+    document.getElementById('snowResults').innerHTML = `
+      <div class="empty"><div class="empty-ico">📍</div>
+        <p><b style="color:var(--amber)">Address not found.</b><br>Try including city &amp; state.</p>
+      </div>`;
+    toast('Address not recognized', 'err'); return;
+  }
+  snowCoords = geo;
+
+  const radiusM = snowR * 1609.34;
+  setSnowLoader(true, `Searching snow removal within ${snowR} mi…`, 'Overpass + Nominatim');
+
+  const snowTerms = ['snow removal', 'snow plowing', 'snow plow'];
+  const [ovpResults, nomResults] = await Promise.all([
+    searchSnowOverpass(geo, radiusM, false),
+    searchSnowNominatim(geo, snowR, snowTerms),
+  ]);
+
+  let merged = dedupSnow([...nomResults, ...ovpResults]);
+
+  // Auto-expand if fewer than 3 results
+  let expanded = false;
+  if (merged.length < 3) {
+    setSnowLoader(true, `Only ${merged.length} found — expanding to landscaping…`, 'Broadening search');
+    const expandR = Math.min(snowR * 2, 75);
+    const lsTerms = ['landscaping', 'lawn care', 'property maintenance'];
+    const [ovpLs, nomLs] = await Promise.all([
+      searchSnowOverpass(geo, expandR * 1609.34, true),
+      searchSnowNominatim(geo, expandR, lsTerms),
+    ]);
+    const lsMerged = dedupSnow([...nomLs, ...ovpLs]);
+    merged = dedupSnow([...merged, ...lsMerged]);
+    expanded = lsMerged.length > 0;
+  }
+
+  if (!merged.length) {
+    setSnowLoader(false);
+    document.getElementById('snowFindBtn').disabled = false;
+    document.getElementById('snowResults').innerHTML = `
+      <div class="empty"><div class="empty-ico">🔍</div>
+        <p>No companies found within ${snowR} miles.<br>Try a larger radius.</p>
+      </div>`;
+    toast('No results found', 'inf'); return;
+  }
+
+  // Score distances with OSRM table
+  setSnowLoader(true, `Calculating driving times for ${merged.length} companies…`, 'OSRM');
+  const distData = await osrmTable(geo, merged);
+
+  snowResults = merged.slice(0, 30).map((c, i) => ({
+    ...c,
+    distMi: distData[i]?.distMi ?? haversineRaw(geo.lat,geo.lng,c.lat,c.lng),
+    etaTxt: distData[i]?.etaTxt ?? etaFmt(haversineRaw(geo.lat,geo.lng,c.lat,c.lng)/28*3600),
+    etaSec: distData[i]?.etaSec ?? 99999,
+  })).filter(c => c.distMi <= snowR * 1.3)
+     .sort((a,b) => a.etaSec - b.etaSec || a.distMi - b.distMi);
+
+  placeSnowMarkers(snowResults, geo);
+  renderSnowResults(snowResults, expanded);
+
+  if (snowResults.length) {
+    const bounds = L.latLngBounds([[geo.lat, geo.lng]]);
+    snowResults.slice(0, 8).forEach(c => { if(c.lat&&c.lng) bounds.extend([c.lat,c.lng]); });
+    mapSnow.fitBounds(bounds, { padding:[60,50] });
+    document.getElementById('snowMapKey').classList.add('on');
+  }
+
+  setSnowLoader(false);
+  document.getElementById('snowFindBtn').disabled = false;
+
+  const snowCt = snowResults.filter(r => !r.isLandscaping).length;
+  const lsCt   = snowResults.filter(r =>  r.isLandscaping).length;
+  toast(`${snowResults.length} found · ${snowCt} snow removal · ${lsCt} landscaping`, 'ok');
+}
+
+// ── Render results ─────────────────────────────────────────────
+function renderSnowResults(results, wasExpanded) {
+  const el = document.getElementById('snowResults');
+  if (!results.length) { el.innerHTML = `<div class="empty"><p>No results.</p></div>`; return; }
+
+  const snowCt = results.filter(r => !r.isLandscaping).length;
+  const lsCt   = results.filter(r =>  r.isLandscaping).length;
+
+  const snowFacAddr = document.getElementById('snowAddrIn').value.trim();
+  const gSnowUrl  = `https://www.google.com/search?q=${encodeURIComponent('snow removal companies near ' + snowFacAddr)}`;
+  const gSnowMaps = `https://www.google.com/maps/search/snow+removal+near+${encodeURIComponent(snowFacAddr)}`;
+  const gLsUrl    = `https://www.google.com/search?q=${encodeURIComponent('landscaping snow plowing near ' + snowFacAddr)}`;
+
+  let html = `
+    <div class="galt-bar" style="border-color:rgba(96,165,250,.25);background:rgba(96,165,250,.06)">
+      <div class="galt-title" style="color:var(--ice)">🔍 Search Google for Additional Companies</div>
+      <div class="galt-btns">
+        <a class="galt-btn gsearch" href="${gSnowUrl}" target="_blank">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+          Search Google — Snow Removal
+        </a>
+        <a class="galt-btn gsearch" href="${gSnowMaps}" target="_blank" style="background:#0f9d58">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+          Google Maps
+        </a>
+        <a class="galt-btn gsearch" href="${gLsUrl}" target="_blank" style="background:var(--amber)">
+          🌿 Landscaping / Plowing
+        </a>
+        <button class="galt-btn qadd" onclick="openQA('snow')">
+          ➕ Quick Add Company
+        </button>
+      </div>
+    </div>
+    <div class="export-bar">
+      <span style="color:var(--text2)">${results.length} companies · ❄️ ${snowCt} snow · 🌿 ${lsCt} landscaping</span>
+      <button class="btn-export" onclick="exportSnowCSV()">⬇️ Export CSV</button>
+    </div>`;
+
+  if (wasExpanded) {
+    html += `<div class="expand-banner">⚠️ Few snow companies found — also showing landscaping &amp; property maintenance companies that may offer snow removal services.</div>`;
+  }
+
+  results.forEach((c, i) => {
+    const savedVendors = getSnowVendors();
+    const isSaved = savedVendors.some(v => v.sourceId === c.id);
+    const sv = savedVendors.find(v => v.sourceId === c.id);
+
+    const svcBadge = (val, label) => {
+      const cls = val === 'Yes' ? 'yes' : val === 'No' ? 'no' : 'unk';
+      const icon = label.includes('24/7') ? '☁️' : label.includes('Comm') ? '🏢' : '🧂';
+      return `<span class="svc ${cls}">${icon} ${label}: ${val === 'Unknown' ? '?' : val}</span>`;
+    };
+
+    const rating = sv?.rating
+      ? `<div class="rating-row"><span class="stars">${'★'.repeat(Math.round(sv.rating))}${'☆'.repeat(5-Math.round(sv.rating))}</span> <b>${sv.rating}</b> <span style="color:var(--text3)">(manual)</span></div>`
+      : `<div class="rating-row" style="color:var(--text3);font-size:11px">⭐ Rating: N/A — not available from OpenStreetMap · <a href="#" onclick="openSaveModal('${c.id}');return false" style="color:var(--ice)">Add manually</a></div>`;
+
+    const e24 = sv?.emergency24h ?? c.emergency24h;
+    const eComm = sv?.commercialLot ?? c.commercialLot;
+    const eSalt = sv?.saltMgmt ?? c.saltMgmt;
+    const notes = sv?.notes || c.notes || '';
+
+    html += `
+    <div class="scard${c.isLandscaping ? ' landscaping' : ''}" id="scard-${c.id}">
+      <div class="scard-head">
+        <div>
+          <div class="scard-name">${i+1}. ${c.name}
+            ${c.isLandscaping ? ' <span style="font-size:10px;color:var(--amber)">🌿 Landscaping</span>' : ''}
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">
+            📏 ${c.distMi.toFixed(1)} mi · ⏱ ${c.etaTxt}
+            ${c.fromNom ? ' · Nominatim' : ' · Overpass'}
+          </div>
+        </div>
+        <span class="badge ${isSaved ? 'pt' : 'nt'}">${isSaved ? '💾 Saved' : 'Unsaved'}</span>
+      </div>
+
+      ${rating}
+
+      <div class="svc-row">
+        ${svcBadge(e24, '24/7 Emergency')}
+        ${svcBadge(eComm, 'Commercial Lots')}
+        ${svcBadge(eSalt, 'Salt/Ice Mgmt')}
+      </div>
+
+      <div class="scard-info">
+        ${c.address ? `<div class="si">🏠 <span>${c.address}</span></div>` : ''}
+        ${c.phone
+          ? `<div class="si">📞 <span>${c.phone}</span></div>`
+          : `<div class="si"><span style="color:var(--text3)">📞 Not in OSM —</span> <a href="https://www.google.com/search?q=${encodeURIComponent(c.name+' phone number')}" target="_blank" style="color:var(--ice);font-size:12px">Find phone →</a></div>`}
+        ${c.email
+          ? `<div class="si">✉️ <span><a href="mailto:${c.email}">${c.email}</a></span></div>`
+          : `<div class="si"><span style="color:var(--text3)">✉️ Not in OSM —</span> <a href="https://www.google.com/search?q=${encodeURIComponent(c.name+' email')}" target="_blank" style="color:var(--ice);font-size:12px">Find email →</a></div>`}
+        ${c.website
+          ? `<div class="si">🌐 <span><a href="${c.website}" target="_blank">${c.website.replace(/^https?:\/\//, '').split('/')[0]}</a></span></div>`
+          : `<div class="si"><span style="color:var(--text3)">🌐 Not in OSM —</span> <a href="https://www.google.com/search?q=${encodeURIComponent(c.name)}" target="_blank" style="color:var(--ice);font-size:12px">Search online →</a></div>`}
+        ${notes ? `<div class="notes-pill">📝 ${notes}</div>` : ''}
+      </div>
+
+      <div class="scard-acts">
+        ${c.phone
+          ? `<a class="sa call" href="tel:${c.phone.replace(/\D/g,'')}">📞 Call</a>`
+          : `<a class="sa web" href="https://www.google.com/search?q=${encodeURIComponent(c.name+' phone number')}" target="_blank">🔍 Find Phone</a>`}
+        ${c.email   ? `<a class="sa email" href="mailto:${c.email}">✉️ Email</a>` : ''}
+        ${c.website
+          ? `<a class="sa web" href="${c.website}" target="_blank">🌐 Website</a>`
+          : `<a class="sa web" href="https://www.google.com/search?q=${encodeURIComponent(c.name)}" target="_blank">🌐 Find Online</a>`}
+        <a class="sa gmaps"
+           href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.name + ' ' + (c.address||''))}"
+           target="_blank" title="View on Google Maps">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="white" style="margin-right:3px"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+          Maps
+        </a>
+        <a class="sa web"
+           href="https://www.google.com/search?q=${encodeURIComponent(c.name + ' ' + (c.address||''))}"
+           target="_blank" title="Search this company on Google" style="font-size:11px">🔍 Google</a>
+        <button class="sa save-btn" onclick="openSaveModal('${c.id}')">
+          ${isSaved ? '✏️ Edit' : '💾 Save'}
+        </button>
+      </div>
+    </div>`;
+  });
+
+  el.innerHTML = html;
+}
+
+// ── Save vendor modal ──────────────────────────────────────────
+let saveModalSourceId = null;
+
+function openSaveModal(sourceId) {
+  const c = snowResults.find(r => r.id === sourceId);
+  if (!c) return;
+  saveModalSourceId = sourceId;
+
+  const existing = getSnowVendors().find(v => v.sourceId === sourceId) || {};
+  document.getElementById('saveVendorId').value = sourceId;
+  document.getElementById('svName').value    = c.name;
+  document.getElementById('svPhone').value   = existing.phone   || c.phone   || '';
+  document.getElementById('svEmail').value   = existing.email   || c.email   || '';
+  document.getElementById('svWebsite').value = existing.website || c.website || '';
+  document.getElementById('svArea').value    = existing.serviceArea || '';
+  document.getElementById('svRating').value  = existing.rating  || '';
+  document.getElementById('sv24h').checked   = existing.emergency24h === 'Yes';
+  document.getElementById('svComm').checked  = existing.commercialLot === 'Yes';
+  document.getElementById('svSalt').checked  = existing.saltMgmt === 'Yes';
+  document.getElementById('svNotes').value   = existing.notes   || '';
+  document.getElementById('saveModal').classList.remove('dn');
+}
+
+function closeSaveModal() {
+  document.getElementById('saveModal').classList.add('dn');
+  saveModalSourceId = null;
+}
+
+function confirmSaveVendor() {
+  const sourceId = saveModalSourceId;
+  const c = snowResults.find(r => r.id === sourceId);
+  if (!c) { closeSaveModal(); return; }
+
+  const vendors = getSnowVendors().filter(v => v.sourceId !== sourceId);
+  vendors.push({
+    id:           newId(),
+    sourceId,
+    name:         c.name,
+    address:      c.address,
+    phone:        document.getElementById('svPhone').value.trim(),
+    email:        document.getElementById('svEmail').value.trim(),
+    website:      document.getElementById('svWebsite').value.trim(),
+    serviceArea:  document.getElementById('svArea').value.trim(),
+    rating:       parseFloat(document.getElementById('svRating').value) || null,
+    emergency24h: document.getElementById('sv24h').checked  ? 'Yes' : 'No',
+    commercialLot:document.getElementById('svComm').checked ? 'Yes' : 'No',
+    saltMgmt:     document.getElementById('svSalt').checked ? 'Yes' : 'No',
+    notes:        document.getElementById('svNotes').value.trim(),
+    savedAt:      Date.now(),
+  });
+
+  localStorage.setItem(SNOW_VENDORS_KEY, JSON.stringify(vendors));
+  closeSaveModal();
+  renderSnowResults(snowResults, false);
+  renderSavedVendors();
+  toast(`${c.name} saved as vendor`, 'ok');
+}
+
+function getSnowVendors() {
+  return JSON.parse(localStorage.getItem(SNOW_VENDORS_KEY) || '[]');
+}
+
+// ── Saved vendors list ─────────────────────────────────────────
+function renderSavedVendors() {
+  const vendors = getSnowVendors();
+  const el = document.getElementById('snowSavedList');
+  if (!vendors.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-ico">💾</div>
+      <p>No vendors saved yet. Search and click Save.</p></div>`;
+    return;
+  }
+  el.innerHTML = vendors.map(v => `
+    <div class="sv-card">
+      <div class="sv-card-head">
+        <div class="sv-name">❄️ ${v.name}</div>
+        <button class="sa save-btn" style="padding:4px 8px;font-size:11px"
+                onclick="deleteSnowVendor('${v.id}')">🗑 Remove</button>
+      </div>
+      <div class="svc-row">
+        <span class="svc ${v.emergency24h==='Yes'?'yes':'no'}">☁️ 24/7: ${v.emergency24h}</span>
+        <span class="svc ${v.commercialLot==='Yes'?'yes':'no'}">🏢 Commercial: ${v.commercialLot}</span>
+        <span class="svc ${v.saltMgmt==='Yes'?'yes':'no'}">🧂 Salt: ${v.saltMgmt}</span>
+      </div>
+      <div class="scard-info">
+        ${v.serviceArea ? `<div class="si">📍 <span>${v.serviceArea}</span></div>` : ''}
+        ${v.phone   ? `<div class="si">📞 <span>${v.phone}</span></div>` : ''}
+        ${v.email   ? `<div class="si">✉️ <span>${v.email}</span></div>` : ''}
+        ${v.website ? `<div class="si">🌐 <span>${v.website.replace(/^https?:\/\//, '').split('/')[0]}</span></div>` : ''}
+        ${v.rating  ? `<div class="si">⭐ <span>${v.rating} / 5.0</span></div>` : ''}
+        ${v.notes   ? `<div class="notes-pill">📝 ${v.notes}</div>` : ''}
+      </div>
+      <div class="scard-acts">
+        ${v.phone   ? `<a class="sa call" href="tel:${v.phone.replace(/\D/g,'')}">📞 Call</a>` : ''}
+        ${v.email   ? `<a class="sa email" href="mailto:${v.email}">✉️ Email</a>` : ''}
+        ${v.website ? `<a class="sa web" href="${v.website}" target="_blank">🌐 Website</a>` : ''}
+      </div>
+    </div>`).join('');
+}
+
+function deleteSnowVendor(id) {
+  if (!confirm('Remove this saved vendor?')) return;
+  const vendors = getSnowVendors().filter(v => v.id !== id);
+  localStorage.setItem(SNOW_VENDORS_KEY, JSON.stringify(vendors));
+  renderSavedVendors();
+  toast('Vendor removed', 'ok');
+}
+
+// ── Winter Vendor Tracker ──────────────────────────────────────
+function getTracker() { return JSON.parse(localStorage.getItem(SNOW_TRACKER_KEY) || '[]'); }
+
+function addTrackerRow() {
+  const facility = document.getElementById('trkFacility').value.trim();
+  const vendor   = document.getElementById('trkVendor').value.trim();
+  if (!facility || !vendor) { toast('Facility and Vendor are required', 'err'); return; }
+
+  const rows = getTracker();
+  rows.push({
+    id:            newId(),
+    facilityName:  facility,
+    vendorName:    vendor,
+    contactPerson: document.getElementById('trkContact').value.trim(),
+    costPerVisit:  document.getElementById('trkCost').value.trim(),
+    notes:         document.getElementById('trkNotes').value.trim(),
+    createdAt:     Date.now(),
+  });
+  localStorage.setItem(SNOW_TRACKER_KEY, JSON.stringify(rows));
+  ['trkFacility','trkVendor','trkContact','trkCost','trkNotes'].forEach(id =>
+    document.getElementById(id).value = '');
+  renderTracker();
+  toast('Entry logged', 'ok');
+}
+
+function renderTracker() {
+  const rows = getTracker();
+  const el = document.getElementById('trackerTable');
+  if (!rows.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-ico">📋</div>
+      <p>No tracker entries yet.</p></div>`;
+    return;
+  }
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="font-size:12px;color:var(--text2)">${rows.length} entries</span>
+      <button class="btn-export" onclick="exportTrackerCSV()">⬇️ Export CSV</button>
+    </div>
+    <div style="overflow-x:auto">
+    <table class="trk-table">
+      <thead><tr>
+        <th>Facility</th><th>Vendor</th><th>Contact</th>
+        <th>Cost/Visit</th><th>Notes</th><th></th>
+      </tr></thead>
+      <tbody>
+        ${rows.map(r => `<tr>
+          <td><b>${r.facilityName}</b></td>
+          <td>${r.vendorName}</td>
+          <td>${r.contactPerson || '—'}</td>
+          <td style="color:var(--green);font-weight:700">${r.costPerVisit || '—'}</td>
+          <td style="color:var(--text2)">${r.notes || '—'}</td>
+          <td><button class="sa save-btn" style="padding:3px 8px;font-size:11px"
+                onclick="deleteTrackerRow('${r.id}')">🗑</button></td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>`;
+}
+
+function deleteTrackerRow(id) {
+  if (!confirm('Remove this tracker entry?')) return;
+  const rows = getTracker().filter(r => r.id !== id);
+  localStorage.setItem(SNOW_TRACKER_KEY, JSON.stringify(rows));
+  renderTracker();
+}
+
+// ── Export CSV ─────────────────────────────────────────────────
+function exportSnowCSV() {
+  if (!snowResults.length) { toast('No results to export', 'inf'); return; }
+  const savedVendors = getSnowVendors();
+  const headers = ['Company','Phone','Website','Email','Address',
+                   'Distance (mi)','ETA','Rating','24/7 Emergency',
+                   'Commercial Lots','Salt/Ice Mgmt','Notes','Type'];
+  const rows = snowResults.map(c => {
+    const sv = savedVendors.find(v => v.sourceId === c.id) || {};
+    return [c.name, sv.phone||c.phone, sv.website||c.website, sv.email||c.email,
+            c.address, c.distMi?.toFixed(1), c.etaTxt,
+            sv.rating || 'N/A', sv.emergency24h||c.emergency24h,
+            sv.commercialLot||c.commercialLot, sv.saltMgmt||c.saltMgmt,
+            sv.notes || '', c.isLandscaping ? 'Landscaping' : 'Snow Removal'];
+  });
+  const csv = [headers, ...rows]
+    .map(row => row.map(v => `"${(v||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv,' + encodeURIComponent(csv);
+  a.download = `snow_removal_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  toast('CSV exported', 'ok');
+}
+
+function exportTrackerCSV() {
+  const rows = getTracker();
+  if (!rows.length) { toast('No tracker entries to export', 'inf'); return; }
+  const headers = ['Facility','Vendor','Contact Person','Cost per Visit','Notes','Date Added'];
+  const data = rows.map(r => [r.facilityName, r.vendorName, r.contactPerson,
+    r.costPerVisit, r.notes, new Date(r.createdAt).toLocaleDateString()]);
+  const csv = [headers, ...data]
+    .map(row => row.map(v => `"${(v||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv,' + encodeURIComponent(csv);
+  a.download = `winter_vendor_tracker_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+// ── Sub-tab switcher ───────────────────────────────────────────
+function switchSnowTab(name, btn) {
+  document.getElementById('snowResults').classList.add('dn');
+  document.getElementById('snowSaved').classList.add('dn');
+  document.getElementById('snowTracker').classList.add('dn');
+  document.querySelectorAll('.stab').forEach(t => t.classList.remove('on'));
+
+  if (name === 'results') {
+    document.getElementById('snowResults').classList.remove('dn');
+  } else if (name === 'saved') {
+    document.getElementById('snowSaved').classList.remove('dn');
+    renderSavedVendors();
+  } else if (name === 'tracker') {
+    document.getElementById('snowTracker').classList.remove('dn');
+    renderTracker();
+  }
+  if (btn) btn.classList.add('on');
+}
+
+function clearSnowSearch() {
+  document.getElementById('snowAddrIn').value = '';
+  snowResults = []; snowCoords = null;
+  snowCoMarkers.forEach(m => mapSnow?.removeLayer(m)); snowCoMarkers.clear();
+  if (snowSpotMark) { mapSnow?.removeLayer(snowSpotMark); snowSpotMark = null; }
+  document.getElementById('snowMapKey').classList.remove('on');
+  document.getElementById('snowResults').innerHTML = `
+    <div class="empty"><div class="empty-ico">❄️</div>
+      <p>Enter a facility address to find snow removal companies.</p></div>`;
+  mapSnow?.setView([38, -90], 4);
+}
+
+function setSnowLoader(show, msg='', sub='') {
+  document.getElementById('snowLoader').classList.toggle('dn', !show);
+  if (show) {
+    document.getElementById('snowLoaderMsg').textContent = msg;
+    document.getElementById('snowLoaderSub').textContent = sub;
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// QUICK ADD COMPANY MODAL
+// Saves newly found companies directly to master list (towing) or saved vendors (snow)
+// ════════════════════════════════════════════════════════════
+
+function openQA(type, prefill = {}) {
+  const isTowing = type === 'towing';
+  document.getElementById('qaType').value = type;
+  document.getElementById('qaTitle').textContent =
+    isTowing ? '➕ Quick Add — Towing Company' : '➕ Quick Add — Snow Removal Company';
+
+  // Clear all fields
+  ['qaName','qaPhone','qaEmail','qaAddr','qaWebsite','qaArea','qaNotes'].forEach(id =>
+    document.getElementById(id).value = '');
+  document.getElementById('qa24h').checked = false;
+  document.getElementById('qaComm').checked = false;
+  document.getElementById('qaSalt').checked = false;
+  document.getElementById('qaGeoStatus').textContent = '';
+
+  // Pre-fill from card if provided
+  if (prefill.name)    document.getElementById('qaName').value    = prefill.name;
+  if (prefill.phone)   document.getElementById('qaPhone').value   = prefill.phone;
+  if (prefill.address) document.getElementById('qaAddr').value    = prefill.address;
+  if (prefill.website) document.getElementById('qaWebsite').value = prefill.website;
+  if (prefill.email)   document.getElementById('qaEmail').value   = prefill.email;
+
+  // Show/hide snow-specific fields
+  document.getElementById('qaExtraFields').classList.toggle('dn', isTowing);
+
+  document.getElementById('qaModal').classList.remove('dn');
+  setTimeout(() => document.getElementById('qaName').focus(), 100);
+}
+
+function closeQA() {
+  document.getElementById('qaModal').classList.add('dn');
+}
+
+async function confirmQuickAdd() {
+  const type    = document.getElementById('qaType').value;
+  const name    = document.getElementById('qaName').value.trim();
+  const addr    = document.getElementById('qaAddr').value.trim();
+  const phone   = document.getElementById('qaPhone').value.trim();
+  const email   = document.getElementById('qaEmail').value.trim();
+  const website = document.getElementById('qaWebsite').value.trim();
+  const area    = document.getElementById('qaArea').value.trim();
+  const notes   = document.getElementById('qaNotes').value.trim();
+
+  if (!name) { toast('Company name is required', 'err'); document.getElementById('qaName').focus(); return; }
+
+  if (type === 'towing') {
+    // ── Save to towing master list ──────────────────────────
+    const id = newId();
+    db.push({
+      id, name, address: addr, phone, email,
+      contact: '', market: area,
+      status: 'Active', lat: null, lng: null, geoAttempted: false,
+    });
+    save();
+    closeQA();
+    toast(`"${name}" added to master list — geocoding address…`, 'ok');
+    console.log(`[TowLocator] Quick Add (towing): "${name}" → ${addr}`);
+    // Auto-geocode
+    if (addr) {
+      document.getElementById('qaGeoStatus').textContent = 'Geocoding…';
+      await geocodePartner(id);
+    }
+    // Refresh admin table if visible
+    if (document.getElementById('vAdmin').classList.contains('on')) renderTable();
+
+  } else {
+    // ── Save to snow vendors ────────────────────────────────
+    const vendors = getSnowVendors();
+    vendors.push({
+      id: newId(), sourceId: `qa-${Date.now()}`,
+      name, address: addr, phone, email, website,
+      serviceArea: area, notes,
+      rating: null,
+      emergency24h: document.getElementById('qa24h').checked ? 'Yes' : 'Unknown',
+      commercialLot: document.getElementById('qaComm').checked ? 'Yes' : 'Unknown',
+      saltMgmt:     document.getElementById('qaSalt').checked ? 'Yes' : 'Unknown',
+      savedAt: Date.now(),
+    });
+    localStorage.setItem(SNOW_VENDORS_KEY, JSON.stringify(vendors));
+    closeQA();
+    toast(`"${name}" saved to Snow Vendors`, 'ok');
+    // Refresh saved vendors panel if open
+    renderSavedVendors();
+  }
+}
+
+// Close modal on overlay click
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('qaModal')?.addEventListener('click', function(e) {
+    if (e.target === this) closeQA();
+  });
+  document.getElementById('saveModal')?.addEventListener('click', function(e) {
+    if (e.target === this) closeSaveModal();
+  });
+});
+
+// BOOT
+load();
+initMap();
+</script>
+</body>
+</html>
